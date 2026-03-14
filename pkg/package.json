@@ -1,0 +1,8 @@
+{
+  "name": "@labrat/pkg",
+  "version": "0.57.1",
+  "piConfig": {
+    "name": "labrat",
+    "configDir": ".labrat"
+  }
+}

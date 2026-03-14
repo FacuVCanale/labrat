@@ -52,7 +52,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Repository Bootstrap & Build** `risk:medium` `depends:[]`
+- [x] **S01: Repository Bootstrap & Build** `risk:medium` `depends:[]`
   > After this: `npm run build` passes with GSD-2 source in the repo, upstream remote set, package identity updated to Labrat, all inherited infrastructure functional.
 
 - [ ] **S02: Research Types & State Machine** `risk:high` `depends:[S01]`

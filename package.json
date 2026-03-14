@@ -1,0 +1,95 @@
+{
+  "name": "labrat",
+  "version": "2.10.6",
+  "description": "Labrat — research-oriented coding agent",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/claude/labrat.git"
+  },
+  "homepage": "https://github.com/claude/labrat#readme",
+  "bugs": {
+    "url": "https://github.com/claude/labrat/issues"
+  },
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "bin": {
+    "labrat": "dist/loader.js",
+    "labrat-cli": "dist/loader.js"
+  },
+  "files": [
+    "dist",
+    "packages",
+    "pkg",
+    "src/resources",
+    "scripts/postinstall.js",
+    "package.json",
+    "README.md"
+  ],
+  "piConfig": {
+    "name": "labrat",
+    "configDir": ".labrat"
+  },
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "build:pi-tui": "npm run build -w @gsd/pi-tui",
+    "build:pi-ai": "npm run build -w @gsd/pi-ai",
+    "build:pi-agent-core": "npm run build -w @gsd/pi-agent-core",
+    "build:pi-coding-agent": "npm run build -w @gsd/pi-coding-agent",
+    "build:native-pkg": "npm run build -w @gsd/native",
+    "build:pi": "npm run build:native-pkg && npm run build:pi-tui && npm run build:pi-ai && npm run build:pi-agent-core && npm run build:pi-coding-agent",
+    "build": "npm run build:pi && tsc && npm run copy-themes",
+    "copy-themes": "node -e \"const{mkdirSync,cpSync}=require('fs');const{resolve}=require('path');const src=resolve(__dirname,'packages/pi-coding-agent/dist/modes/interactive/theme');mkdirSync('pkg/dist/modes/interactive/theme',{recursive:true});cpSync(src,'pkg/dist/modes/interactive/theme',{recursive:true})\"",
+    "test": "node --import ./src/resources/extensions/gsd/tests/resolve-ts.mjs --experimental-strip-types --test src/resources/extensions/gsd/tests/*.test.ts src/resources/extensions/gsd/tests/*.test.mjs src/tests/*.test.ts",
+    "test:browser-tools": "node --test src/resources/extensions/browser-tools/tests/browser-tools-unit.test.cjs src/resources/extensions/browser-tools/tests/browser-tools-integration.test.mjs",
+    "test:native": "node --test packages/native/src/__tests__/grep.test.mjs",
+    "build:native": "node native/scripts/build.js",
+    "build:native:dev": "node native/scripts/build.js --dev",
+    "dev": "tsc --watch",
+    "postinstall": "node scripts/postinstall.js",
+    "pi:install-global": "node scripts/install-pi-global.js",
+    "pi:uninstall-global": "node scripts/uninstall-pi-global.js",
+    "sync-pkg-version": "node scripts/sync-pkg-version.cjs",
+    "sync-platform-versions": "node native/scripts/sync-platform-versions.cjs",
+    "prepublishOnly": "npm run sync-pkg-version && npm run sync-platform-versions && git diff --exit-code || (echo 'ERROR: version sync changed files — commit them before publishing' && exit 1) && npm run build"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "@gsd/pi-agent-core": "*",
+    "@gsd/pi-ai": "*",
+    "@gsd/pi-coding-agent": "*",
+    "@gsd/pi-tui": "*",
+    "picocolors": "^1.1.1",
+    "picomatch": "^4.0.3",
+    "playwright": "^1.58.2",
+    "sharp": "^0.34.5"
+  },
+  "bundleDependencies": [
+    "@gsd/native",
+    "@gsd/pi-agent-core",
+    "@gsd/pi-ai",
+    "@gsd/pi-coding-agent",
+    "@gsd/pi-tui"
+  ],
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/picomatch": "^4.0.2",
+    "jiti": "^2.6.1",
+    "typescript": "^5.4.0"
+  },
+  "optionalDependencies": {
+    "@gsd-build/engine-darwin-arm64": ">=2.10.2",
+    "@gsd-build/engine-darwin-x64": ">=2.10.2",
+    "@gsd-build/engine-linux-x64-gnu": ">=2.10.2",
+    "@gsd-build/engine-linux-arm64-gnu": ">=2.10.2",
+    "@gsd-build/engine-win32-x64-msvc": ">=2.10.2",
+    "fsevents": "~2.3.3"
+  },
+  "overrides": {
+    "gaxios": "7.1.4"
+  }
+}

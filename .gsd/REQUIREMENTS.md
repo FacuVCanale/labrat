@@ -16,13 +16,13 @@ Guidelines:
 
 ### R001 — GSD-2 Base & Upstream Tracking
 - Class: constraint
-- Status: active
+- Status: validated
 - Description: Repository starts from GSD-2 codebase with upstream remote for selective cherry-picks. Builds and runs.
 - Why it matters: All infrastructure (crash recovery, cost tracking, timeout, multi-provider LLM) comes from GSD-2 — rebuilding it is waste.
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: none
-- Validation: unmapped
+- Validation: S01 — GSD-2 v2.10.6 merged, upstream remote set, `npm run build` passes, all workspace packages compile, native bindings present
 - Notes: `git remote add upstream` for GSD-2. Cherry-pick selectively, no direct merge.
 
 ### R002 — Research Flow Semantics
@@ -170,18 +170,28 @@ Guidelines:
 
 ### R015 — Full LLM Provider Support
 - Class: constraint
-- Status: active
+- Status: validated
 - Description: All 20+ LLM providers from GSD-2 available. Users pick whatever model they want.
 - Why it matters: Zero cost to maintain — it's inherited infrastructure. Different models suit different research tasks.
 - Source: user
 - Primary owning slice: M001/S01
 - Supporting slices: none
-- Validation: unmapped
+- Validation: S01 — All provider infrastructure inherited from GSD-2 unchanged, compiles clean. No providers removed or modified.
 - Notes: Inherited from GSD-2. No changes needed.
 
 ## Validated
 
-(none yet)
+### R001 — GSD-2 Base & Upstream Tracking
+- Class: constraint
+- Status: validated
+- Description: Repository starts from GSD-2 codebase with upstream remote for selective cherry-picks. Builds and runs.
+- Validation: S01 — GSD-2 v2.10.6 merged, upstream remote set, `npm run build` passes, all workspace packages compile, native bindings present
+
+### R015 — Full LLM Provider Support
+- Class: constraint
+- Status: validated
+- Description: All 20+ LLM providers from GSD-2 available. Users pick whatever model they want.
+- Validation: S01 — All provider infrastructure inherited from GSD-2 unchanged, compiles clean. No providers removed or modified.
 
 ## Deferred
 
@@ -312,7 +322,7 @@ Guidelines:
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
-| R001 | constraint | active | M001/S01 | none | unmapped |
+| R001 | constraint | validated | M001/S01 | none | S01 |
 | R002 | core-capability | active | M001/S02 | M001/S04 | unmapped |
 | R003 | primary-user-loop | active | M001/S03 | M001/S02, M001/S04 | unmapped |
 | R004 | core-capability | active | M001/S03 | none | unmapped |
@@ -326,7 +336,7 @@ Guidelines:
 | R012 | launchability | active | M001/S07 | none | unmapped |
 | R013 | primary-user-loop | active | M001/S07 | M001/S06 | unmapped |
 | R014 | core-capability | active | M001/S04 | none | unmapped |
-| R015 | constraint | active | M001/S01 | none | unmapped |
+| R015 | constraint | validated | M001/S01 | none | S01 |
 | R016 | core-capability | deferred | M002 | none | unmapped |
 | R017 | differentiator | deferred | M002 | none | unmapped |
 | R018 | core-capability | deferred | M002 | none | unmapped |
@@ -341,7 +351,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 15
-- Mapped to slices: 15
-- Validated: 0
+- Active requirements: 13
+- Mapped to slices: 13
+- Validated: 2
 - Unmapped active requirements: 0

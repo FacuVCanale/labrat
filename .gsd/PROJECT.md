@@ -12,7 +12,7 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 ## Current State
 
-Empty repository. GSD-2 upstream tracked as source for infrastructure. No code yet.
+GSD-2 v2.10.6 merged and rebranded as Labrat. Full codebase builds clean (`npm run build` passes). Package identity is `labrat` with `~/.labrat` config directory and `LABRAT_*` env vars. All 20+ LLM providers, crash recovery, cost tracking, and extension infrastructure inherited and functional. Upstream remote preserved for cherry-picks. Internal `@gsd/*` workspace names kept unchanged (D011).
 
 ## Architecture / Key Patterns
 
