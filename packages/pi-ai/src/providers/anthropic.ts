@@ -340,6 +340,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				} else if (event.type === "content_block_delta") {
 					if (event.delta.type === "text_delta") {
 						const index = blocks.findIndex((b) => b.index === event.index);
+						if (index < 0) continue;
 						const block = blocks[index];
 						if (block && block.type === "text") {
 							block.text += event.delta.text;
@@ -352,6 +353,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 						}
 					} else if (event.delta.type === "thinking_delta") {
 						const index = blocks.findIndex((b) => b.index === event.index);
+						if (index < 0) continue;
 						const block = blocks[index];
 						if (block && block.type === "thinking") {
 							block.thinking += event.delta.thinking;
@@ -364,6 +366,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 						}
 					} else if (event.delta.type === "input_json_delta") {
 						const index = blocks.findIndex((b) => b.index === event.index);
+						if (index < 0) continue;
 						const block = blocks[index];
 						if (block && block.type === "toolCall") {
 							block.partialJson += event.delta.partial_json;
@@ -377,6 +380,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 						}
 					} else if (event.delta.type === "signature_delta") {
 						const index = blocks.findIndex((b) => b.index === event.index);
+						if (index < 0) continue;
 						const block = blocks[index];
 						if (block && block.type === "thinking") {
 							block.thinkingSignature = block.thinkingSignature || "";
@@ -385,6 +389,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					}
 				} else if (event.type === "content_block_stop") {
 					const index = blocks.findIndex((b) => b.index === event.index);
+					if (index < 0) continue;
 					const block = blocks[index];
 					if (block) {
 						delete (block as any).index;

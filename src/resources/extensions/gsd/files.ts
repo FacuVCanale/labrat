@@ -344,6 +344,8 @@ export function parsePlan(content: string): SlicePlan {
   if (tasksSection) {
     const taskLines = tasksSection.split('\n');
     let currentTask: TaskPlanEntry | null = null;
+    let filesMatch: RegExpMatchArray | null;
+    let verifyMatch: RegExpMatchArray | null;
 
     for (const line of taskLines) {
       const cbMatch = line.match(/^-\s+\[([ xX])\]\s+\*\*(\w+):\s+(.+?)\*\*\s*(.*)/);
@@ -361,19 +363,13 @@ export function parsePlan(content: string): SlicePlan {
           done: cbMatch[1].toLowerCase() === 'x',
           estimate,
         };
-      } else if (currentTask && line.match(/^\s*-\s+Files:\s*(.*)/)) {
-        const filesMatch = line.match(/^\s*-\s+Files:\s*(.*)/);
-        if (filesMatch) {
+      } else if (currentTask && (filesMatch = line.match(/^\s*-\s+Files:\s*(.*)/))) {
           currentTask.files = filesMatch[1]
             .split(',')
             .map(f => f.replace(/`/g, '').trim())
             .filter(f => f.length > 0);
-        }
-      } else if (currentTask && line.match(/^\s*-\s+Verify:\s*(.*)/)) {
-        const verifyMatch = line.match(/^\s*-\s+Verify:\s*(.*)/);
-        if (verifyMatch) {
+      } else if (currentTask && (verifyMatch = line.match(/^\s*-\s+Verify:\s*(.*)/))) {
           currentTask.verify = verifyMatch[1].trim();
-        }
       } else if (currentTask && line.trim() && !line.startsWith('#')) {
         const desc = line.trim();
         if (desc) {

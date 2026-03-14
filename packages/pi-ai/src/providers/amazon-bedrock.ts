@@ -279,7 +279,8 @@ function handleContentBlockStart(
 			index,
 		};
 		output.content.push(block);
-		stream.push({ type: "toolcall_start", contentIndex: blocks.length - 1, partial: output });
+		const contentIndex = blocks.length - 1;
+		stream.push({ type: "toolcall_start", contentIndex, partial: output });
 	}
 }
 
@@ -292,7 +293,7 @@ function handleContentBlockDelta(
 	const contentBlockIndex = event.contentBlockIndex!;
 	const delta = event.delta;
 	let index = blocks.findIndex((b) => b.index === contentBlockIndex);
-	let block = blocks[index];
+	let block = index >= 0 ? blocks[index] : undefined;
 
 	if (delta?.text !== undefined) {
 		// If no text block exists yet, create one, as `handleContentBlockStart` is not sent for text blocks
@@ -363,6 +364,7 @@ function handleContentBlockStop(
 	stream: AssistantMessageEventStream,
 ): void {
 	const index = blocks.findIndex((b) => b.index === event.contentBlockIndex);
+	if (index < 0) return;
 	const block = blocks[index];
 	if (!block) return;
 	delete (block as Block).index;

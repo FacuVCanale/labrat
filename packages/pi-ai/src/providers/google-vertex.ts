@@ -113,7 +113,7 @@ export const streamGoogleVertex: StreamFunction<"google-vertex", GoogleVertexOpt
 									if (currentBlock.type === "text") {
 										stream.push({
 											type: "text_end",
-											contentIndex: blocks.length - 1,
+											contentIndex: blockIndex(),
 											content: currentBlock.text,
 											partial: output,
 										});

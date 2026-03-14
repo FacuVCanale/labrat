@@ -100,7 +100,7 @@ export const streamGoogle: StreamFunction<"google-generative-ai", GoogleOptions>
 									if (currentBlock.type === "text") {
 										stream.push({
 											type: "text_end",
-											contentIndex: blocks.length - 1,
+											contentIndex: blockIndex(),
 											content: currentBlock.text,
 											partial: output,
 										});

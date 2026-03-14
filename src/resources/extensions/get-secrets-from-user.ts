@@ -375,7 +375,7 @@ async function applySecrets(
 			try {
 				const result = await opts.exec("sh", [
 					"-c",
-					`printf %s ${shellEscapeSingle(value)} | vercel env add ${key} ${env}`,
+					`printf %s ${shellEscapeSingle(value)} | vercel env add ${shellEscapeSingle(key)} ${shellEscapeSingle(env)}`,
 				]);
 				if (result.code !== 0) {
 					errors.push(`${key}: ${result.stderr.slice(0, 200)}`);
@@ -393,7 +393,7 @@ async function applySecrets(
 			try {
 				const result = await opts.exec("sh", [
 					"-c",
-					`npx convex env set ${key} ${shellEscapeSingle(value)}`,
+					`npx convex env set ${shellEscapeSingle(key)} ${shellEscapeSingle(value)}`,
 				]);
 				if (result.code !== 0) {
 					errors.push(`${key}: ${result.stderr.slice(0, 200)}`);

@@ -206,6 +206,17 @@ const COMPILED_COMMIT_TYPE_RULES: { match: (text: string) => boolean; commitType
  * Uses case-insensitive word-boundary matching against known keywords.
  * Returns "feat" when no keywords match.
  */
+// ─── Command Validation ────────────────────────────────────────────────
+
+/**
+ * Validate that a command string is a simple command + args pattern
+ * with no shell metacharacters (semicolons, pipes, backticks, $(), etc.).
+ * Used to prevent injection via user-provided pre_merge_check commands.
+ */
+function isSimpleCommand(cmd: string): boolean {
+  return /^[a-zA-Z0-9_./-]+(\s+[a-zA-Z0-9_.=:/-]+)*$/.test(cmd);
+}
+
 // ─── GitServiceImpl ────────────────────────────────────────────────────
 
 export class GitServiceImpl {
@@ -566,6 +577,12 @@ export class GitServiceImpl {
       } catch {
         return { passed: true, skipped: true };
       }
+    }
+
+    // Validate command: only allow simple command + args patterns, no shell metacharacters
+    if (!isSimpleCommand(command)) {
+      console.error(`GitService: pre_merge_check command rejected (unsafe pattern): ${command}`);
+      return { passed: true, skipped: true, command, error: "Command rejected: contains shell metacharacters" };
     }
 
     try {

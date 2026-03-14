@@ -33,6 +33,37 @@ const pageCache = new LRUTTLCache<CachedPage>({ max: 30, ttlMs: 900_000 });
 pageCache.startPurgeInterval(120_000);
 
 // =============================================================================
+// SSRF Protection
+// =============================================================================
+
+/**
+ * Check if a URL points to a private/internal address.
+ * Rejects localhost, private IPv4 ranges, and file:// URLs.
+ */
+function isPrivateUrl(urlStr: string): boolean {
+  try {
+    const parsed = new URL(urlStr);
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '[::1]') return true;
+    if (parsed.protocol === 'file:') return true;
+    // Check IPv4 private ranges
+    const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (ipv4Match) {
+      const [, a, b] = ipv4Match.map(Number);
+      if (a === 127) return true;        // 127.0.0.0/8
+      if (a === 10) return true;          // 10.0.0.0/8
+      if (a === 172 && b >= 16 && b <= 31) return true;  // 172.16.0.0/12
+      if (a === 192 && b === 168) return true;  // 192.168.0.0/16
+      if (a === 169 && b === 254) return true;  // 169.254.0.0/16
+      if (a === 0) return true;           // 0.0.0.0/8
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+// =============================================================================
 // Jina Reader
 // =============================================================================
 
@@ -351,6 +382,15 @@ export function registerFetchPageTool(pi: ExtensionAPI) {
           content: [{ type: "text", text: `Invalid URL: ${url}` }],
           isError: true,
           details: { error: "Invalid URL", url } satisfies Partial<FetchPageDetails>,
+        };
+      }
+
+      // SSRF protection: reject private/internal URLs
+      if (isPrivateUrl(url)) {
+        return {
+          content: [{ type: "text", text: `Refused to fetch private/internal URL: ${url}` }],
+          isError: true,
+          details: { error: "Private/internal URL blocked", url } satisfies Partial<FetchPageDetails>,
         };
       }
 

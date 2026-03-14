@@ -86,7 +86,7 @@ export default function (pi: ExtensionAPI) {
 					if (totalCost) parts.push(`$${totalCost.toFixed(3)}`);
 
 					const usage = ctx.getContextUsage();
-					const ctxPct = usage?.percent !== null && usage?.percent !== undefined ? `${usage.percent.toFixed(1)}%` : "?";
+					const ctxPct = usage?.percent != null ? `${usage.percent.toFixed(1)}%` : "?";
 					const ctxWin = usage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 					parts.push(`${ctxPct}/${fmt(ctxWin)}`);
 
