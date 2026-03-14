@@ -18,6 +18,12 @@ process.env.PI_PACKAGE_DIR = pkgDir
 process.env.PI_SKIP_VERSION_CHECK = '1'  // Labrat runs its own update check in cli.ts — suppress pi's
 process.title = 'labrat'
 
+// Read package.json once — reused for banner version and LABRAT_VERSION env var
+let labratPkgJson: { version?: string } = {}
+try {
+  labratPkgJson = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf-8'))
+} catch { /* ignore */ }
+
 // Print branded banner on first launch (before ~/.gsd/ exists)
 if (!existsSync(appRoot)) {
   const cyan  = '\x1b[36m'
@@ -25,11 +31,7 @@ if (!existsSync(appRoot)) {
   const dim   = '\x1b[2m'
   const reset = '\x1b[0m'
   const colorCyan = (s: string) => `${cyan}${s}${reset}`
-  let version = ''
-  try {
-    const pkgJson = JSON.parse(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf-8'))
-    version = pkgJson.version ?? ''
-  } catch { /* ignore */ }
+  const version = labratPkgJson.version ?? ''
   process.stderr.write(
     renderLogo(colorCyan) +
     '\n' +
@@ -57,12 +59,7 @@ const { Module } = await import('module');
 (Module as any)._initPaths?.()
 
 // LABRAT_VERSION — expose package version so extensions can display it
-try {
-  const labratPkg = JSON.parse(readFileSync(join(labratRoot, 'package.json'), 'utf-8'))
-  process.env.LABRAT_VERSION = labratPkg.version || '0.0.0'
-} catch {
-  process.env.LABRAT_VERSION = '0.0.0'
-}
+process.env.LABRAT_VERSION = labratPkgJson.version || '0.0.0'
 
 // LABRAT_BIN_PATH — absolute path to this loader (dist/loader.js), used by patched subagent
 // to spawn labrat instead of pi when dispatching workflow tasks

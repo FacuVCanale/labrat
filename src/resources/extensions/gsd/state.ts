@@ -35,6 +35,23 @@ import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import type { CampaignConfig } from './types.js';
 
+// ─── Cached File I/O ────────────────────────────────────────────────────────
+
+/**
+ * Read a file with caching. Returns content or null on ENOENT.
+ * Avoids duplicate readFileSync calls for files read in multiple loops.
+ */
+function cachedRead(filePath: string, cache: Map<string, string>): string | null {
+  if (cache.has(filePath)) return cache.get(filePath)!;
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    cache.set(filePath, content);
+    return content;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Query Functions ───────────────────────────────────────────────────────
 
 /**
@@ -90,7 +107,10 @@ export function countExperiments(sliceDir: string): number {
   if (!existsSync(logPath)) return 0;
   try {
     const content = readFileSync(logPath, 'utf-8');
-    return content.split('\n').filter(line => line.trim().length > 0).length;
+    return content.split('\n').filter(line => {
+      if (line.trim().length === 0) return false;
+      try { JSON.parse(line); return true; } catch { return false; }
+    }).length;
   } catch {
     return 0;
   }
@@ -145,6 +165,11 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   const milestoneIds = findMilestoneIds(basePath);
   const requirements = parseRequirementCounts(await loadFile(resolveGsdRootFile(basePath, "REQUIREMENTS")));
 
+  // Caches scoped to this derivation pass — avoids repeated readdirSync / readFileSync
+  // calls when the same directories and files are accessed in multiple loops.
+  const dirCache = new Map<string, string[]>();
+  const fileCache = new Map<string, string>();
+
   if (milestoneIds.length === 0) {
     return {
       activeMilestone: null,
@@ -166,17 +191,17 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   // This allows forward references (M002 depending on M003) to resolve correctly.
   const completeMilestoneIds = new Set<string>();
   for (const mid of milestoneIds) {
-    const rf = resolveMilestoneFile(basePath, mid, "ROADMAP");
-    const rc = rf ? await loadFile(rf) : null;
+    const rf = resolveMilestoneFile(basePath, mid, "ROADMAP", dirCache);
+    const rc = rf ? cachedRead(rf, fileCache) : null;
     if (!rc) {
       // No roadmap — milestone is complete if it has a summary
-      const sf = resolveMilestoneFile(basePath, mid, "SUMMARY");
+      const sf = resolveMilestoneFile(basePath, mid, "SUMMARY", dirCache);
       if (sf) completeMilestoneIds.add(mid);
       continue;
     }
     const rmap = parseRoadmap(rc);
     if (!isMilestoneComplete(rmap)) continue;
-    const sf = resolveMilestoneFile(basePath, mid, "SUMMARY");
+    const sf = resolveMilestoneFile(basePath, mid, "SUMMARY", dirCache);
     if (sf) completeMilestoneIds.add(mid);
   }
 
@@ -187,13 +212,13 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   let activeMilestoneFound = false;
 
   for (const mid of milestoneIds) {
-    const roadmapFile = resolveMilestoneFile(basePath, mid, "ROADMAP");
-    const content = roadmapFile ? await loadFile(roadmapFile) : null;
+    const roadmapFile = resolveMilestoneFile(basePath, mid, "ROADMAP", dirCache);
+    const content = roadmapFile ? cachedRead(roadmapFile, fileCache) : null;
     if (!content) {
       // No roadmap — check if a summary exists (completed milestone without roadmap)
-      const summaryFile = resolveMilestoneFile(basePath, mid, "SUMMARY");
+      const summaryFile = resolveMilestoneFile(basePath, mid, "SUMMARY", dirCache);
       if (summaryFile) {
-        const summaryContent = await loadFile(summaryFile);
+        const summaryContent = cachedRead(summaryFile, fileCache);
         const summaryTitle = summaryContent
           ? (parseSummary(summaryContent).title || mid)
           : mid;
@@ -218,7 +243,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
 
     if (complete) {
       // All slices done — check if milestone summary exists
-      const summaryFile = resolveMilestoneFile(basePath, mid, "SUMMARY");
+      const summaryFile = resolveMilestoneFile(basePath, mid, "SUMMARY", dirCache);
       if (!summaryFile && !activeMilestoneFound) {
         // All slices complete but no summary written yet → completing-milestone
         activeMilestone = { id: mid, title };
@@ -230,8 +255,8 @@ export async function deriveState(basePath: string): Promise<GSDState> {
       }
     } else if (!activeMilestoneFound) {
       // Check milestone-level dependencies before promoting to active
-      const contextFile = resolveMilestoneFile(basePath, mid, "CONTEXT");
-      const contextContent = contextFile ? await loadFile(contextFile) : null;
+      const contextFile = resolveMilestoneFile(basePath, mid, "CONTEXT", dirCache);
+      const contextContent = contextFile ? cachedRead(contextFile, fileCache) : null;
       const deps = parseContextDependsOn(contextContent);
       const depsUnmet = deps.some(dep => !completeMilestoneIds.has(dep));
       if (depsUnmet) {
@@ -244,8 +269,8 @@ export async function deriveState(basePath: string): Promise<GSDState> {
         registry.push({ id: mid, title, status: 'active', ...(deps.length > 0 ? { dependsOn: deps } : {}) });
       }
     } else {
-      const contextFile2 = resolveMilestoneFile(basePath, mid, "CONTEXT");
-      const contextContent2 = contextFile2 ? await loadFile(contextFile2) : null;
+      const contextFile2 = resolveMilestoneFile(basePath, mid, "CONTEXT", dirCache);
+      const contextContent2 = contextFile2 ? cachedRead(contextFile2, fileCache) : null;
       const deps2 = parseContextDependsOn(contextContent2);
       registry.push({ id: mid, title, status: 'pending', ...(deps2.length > 0 ? { dependsOn: deps2 } : {}) });
     }
@@ -378,7 +403,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   const activeBranch = getActiveSliceBranch(basePath);
 
   // Check if the slice has a plan
-  const planFile = resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "PLAN");
+  const planFile = resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "PLAN", dirCache);
   const slicePlanContent = planFile ? await loadFile(planFile) : null;
 
   if (!slicePlanContent) {
@@ -407,7 +432,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   };
 
   // ── Campaign detection: if a valid CAMPAIGN.json exists, enter experimenting phase ──
-  const sliceDir = resolveSlicePath(basePath, activeMilestone.id, activeSlice.id);
+  const sliceDir = resolveSlicePath(basePath, activeMilestone.id, activeSlice.id, dirCache);
   if (sliceDir) {
     const campaign = parseCampaignConfig(sliceDir);
     if (campaign) {
@@ -493,7 +518,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   const completedTasks = slicePlan.tasks.filter(t => t.done);
   let blockerTaskId: string | null = null;
   for (const ct of completedTasks) {
-    const summaryFile = resolveTaskFile(basePath, activeMilestone.id, activeSlice.id, ct.id, "SUMMARY");
+    const summaryFile = resolveTaskFile(basePath, activeMilestone.id, activeSlice.id, ct.id, "SUMMARY", dirCache);
     if (!summaryFile) continue;
     const summaryContent = await loadFile(summaryFile);
     if (!summaryContent) continue;
@@ -507,7 +532,7 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   if (blockerTaskId) {
     // Loop protection: if REPLAN.md already exists, a replan was already
     // performed for this slice — skip further replanning and continue executing.
-    const replanFile = resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "REPLAN");
+    const replanFile = resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "REPLAN", dirCache);
     if (!replanFile) {
       return {
         activeMilestone,
@@ -532,8 +557,8 @@ export async function deriveState(basePath: string): Promise<GSDState> {
   }
 
   // Check for interrupted work
-  const sDir = resolveSlicePath(basePath, activeMilestone.id, activeSlice.id);
-  const continueFile = sDir ? resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "CONTINUE") : null;
+  const sDir = resolveSlicePath(basePath, activeMilestone.id, activeSlice.id, dirCache);
+  const continueFile = sDir ? resolveSliceFile(basePath, activeMilestone.id, activeSlice.id, "CONTINUE", dirCache) : null;
   // Also check legacy continue.md
   const hasInterrupted = !!(continueFile && await loadFile(continueFile)) ||
     !!(sDir && await loadFile(join(sDir, "continue.md")));

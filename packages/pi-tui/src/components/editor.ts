@@ -957,9 +957,8 @@ export class Editor implements Component, Focusable {
 		const tabExpandedText = cleanText.replace(/\t/g, "    ");
 
 		// Filter out non-printable characters except newlines
-		let filteredText = tabExpandedText
-			.split("")
-			.filter((char) => char === "\n" || char.charCodeAt(0) >= 32)
+		let filteredText = Array.from(tabExpandedText)
+			.filter((char) => char === "\n" || char.codePointAt(0)! >= 32)
 			.join("");
 
 		// If pasting a file path (starts with /, ~, or .) and the character before

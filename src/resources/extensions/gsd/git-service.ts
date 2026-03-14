@@ -8,7 +8,7 @@
  * paths, commit type inference, and the runGit shell helper.
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
 
@@ -158,7 +158,7 @@ export function writeIntegrationBranch(basePath: string, milestoneId: string, br
  */
 export function runGit(basePath: string, args: string[], options: { allowFailure?: boolean; input?: string } = {}): string {
   try {
-    return execSync(`git ${args.join(" ")}`, {
+    return execFileSync("git", args, {
       cwd: basePath,
       stdio: [options.input != null ? "pipe" : "ignore", "pipe", "pipe"],
       encoding: "utf-8",
@@ -186,6 +186,22 @@ const COMMIT_TYPE_RULES: [string[], string][] = [
 ];
 
 /**
+ * Pre-compiled commit type matching rules.
+ * Each entry: { match: (text) => boolean, commitType: string }
+ * Multi-word keywords use indexOf; single-word keywords use word-boundary regex.
+ */
+const COMPILED_COMMIT_TYPE_RULES: { match: (text: string) => boolean; commitType: string }[] =
+  COMMIT_TYPE_RULES.flatMap(([keywords, commitType]) =>
+    keywords.map((keyword) => {
+      if (keyword.includes(" ")) {
+        return { match: (text: string) => text.includes(keyword), commitType };
+      }
+      const re = new RegExp(`\\b${keyword}\\b`, "i");
+      return { match: (text: string) => re.test(text), commitType };
+    }),
+  );
+
+/**
  * Infer a conventional commit type from a slice title.
  * Uses case-insensitive word-boundary matching against known keywords.
  * Returns "feat" when no keywords match.
@@ -199,6 +215,9 @@ export class GitServiceImpl {
   /** Active milestone ID — used to resolve the integration branch. */
   private _milestoneId: string | null = null;
 
+  /** Cached result of getMainBranch() — invalidated on milestone or branch changes. */
+  private _mainBranchCache: string | null = null;
+
   constructor(basePath: string, prefs: GitPreferences = {}) {
     this.basePath = basePath;
     this.prefs = prefs;
@@ -211,6 +230,12 @@ export class GitServiceImpl {
    */
   setMilestoneId(milestoneId: string | null): void {
     this._milestoneId = milestoneId;
+    this._mainBranchCache = null; // Invalidate — milestone change affects resolution
+  }
+
+  /** Clear the cached main branch result (e.g. after switching branches). */
+  clearMainBranchCache(): void {
+    this._mainBranchCache = null;
   }
 
   /** Convenience wrapper: run git in this repo's basePath. */
@@ -253,8 +278,8 @@ export class GitServiceImpl {
     // git reset HEAD silently succeeds when the path isn't staged, so no
     // error handling is needed per-path.
     this.git(["add", "-A"]);
-    for (const exclusion of allExclusions) {
-      this.git(["reset", "HEAD", "--", exclusion], { allowFailure: true });
+    if (allExclusions.length > 0) {
+      this.git(["reset", "HEAD", "--", ...allExclusions], { allowFailure: true });
     }
   }
 
@@ -319,6 +344,15 @@ export class GitServiceImpl {
    * to it instead of the repo's default branch.
    */
   getMainBranch(): string {
+    if (this._mainBranchCache !== null) return this._mainBranchCache;
+
+    const result = this._resolveMainBranch();
+    this._mainBranchCache = result;
+    return result;
+  }
+
+  /** Internal resolution logic for getMainBranch (uncached). */
+  private _resolveMainBranch(): string {
     // Explicit preference takes priority (double-check validity as defense-in-depth)
     if (this.prefs.main_branch && VALID_BRANCH_NAME.test(this.prefs.main_branch)) {
       return this.prefs.main_branch;
@@ -459,6 +493,7 @@ export class GitServiceImpl {
     this.git(["checkout", "--", ".gsd/"], { allowFailure: true });
 
     this.git(["checkout", branch]);
+    this._mainBranchCache = null; // Invalidate — branch switch may affect resolution
     return created;
   }
 
@@ -477,6 +512,7 @@ export class GitServiceImpl {
     this.git(["checkout", "--", ".gsd/"], { allowFailure: true });
 
     this.git(["checkout", mainBranch]);
+    this._mainBranchCache = null; // Invalidate — branch switch may affect resolution
   }
 
   // ─── S05 Features ─────────────────────────────────────────────────────
@@ -520,7 +556,7 @@ export class GitServiceImpl {
     } else {
       // Auto-detect: look for package.json with a test script
       try {
-        const pkg = execSync("cat package.json", { cwd: this.basePath, encoding: "utf-8" });
+        const pkg = readFileSync(join(this.basePath, "package.json"), "utf-8");
         const parsed = JSON.parse(pkg);
         if (parsed.scripts?.test) {
           command = "npm test";
@@ -810,17 +846,8 @@ export class GitServiceImpl {
 export function inferCommitType(sliceTitle: string): string {
   const lower = sliceTitle.toLowerCase();
 
-  for (const [keywords, commitType] of COMMIT_TYPE_RULES) {
-    for (const keyword of keywords) {
-      // "clean up" is multi-word — use indexOf for it
-      if (keyword.includes(" ")) {
-        if (lower.includes(keyword)) return commitType;
-      } else {
-        // Word boundary match: keyword must not be surrounded by word chars
-        const re = new RegExp(`\\b${keyword}\\b`, "i");
-        if (re.test(lower)) return commitType;
-      }
-    }
+  for (const rule of COMPILED_COMMIT_TYPE_RULES) {
+    if (rule.match(lower)) return rule.commitType;
   }
 
   return "feat";

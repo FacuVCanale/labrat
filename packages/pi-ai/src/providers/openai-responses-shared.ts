@@ -161,7 +161,13 @@ export function convertResponsesMessages<TApi extends Api>(
 			for (const block of msg.content) {
 				if (block.type === "thinking") {
 					if (block.thinkingSignature) {
-						const reasoningItem = JSON.parse(block.thinkingSignature) as ResponseReasoningItem;
+						let reasoningItem: ResponseReasoningItem;
+						try {
+							reasoningItem = JSON.parse(block.thinkingSignature) as ResponseReasoningItem;
+						} catch {
+							// Invalid JSON (e.g., base64 signature from a different provider) -- skip block
+							continue;
+						}
 						output.push(reasoningItem);
 					}
 				} else if (block.type === "text") {
@@ -439,20 +445,36 @@ export async function processResponsesStream<TApi extends Api>(
 					arguments: args,
 				};
 
+				// Update the block in output.content so it no longer carries stale partialJson
+				const blockIdx = blockIndex();
+				const existingBlock = output.content[blockIdx];
+				if (existingBlock && existingBlock.type === "toolCall") {
+					existingBlock.arguments = args;
+					delete (existingBlock as any).partialJson;
+				}
+
 				currentBlock = null;
-				stream.push({ type: "toolcall_end", contentIndex: blockIndex(), toolCall, partial: output });
+				stream.push({ type: "toolcall_end", contentIndex: blockIdx, toolCall, partial: output });
 			}
 		} else if (event.type === "response.completed") {
 			const response = event.response;
 			if (response?.usage) {
 				const cachedTokens = response.usage.input_tokens_details?.cached_tokens || 0;
+				const reportedOutput = response.usage.output_tokens || 0;
+				const reasoningTokens = (response.usage as any).output_tokens_details?.reasoning_tokens || 0;
+				// In Responses API, output_tokens may not include reasoning tokens.
+				// If total_tokens > input + output, reasoning is excluded from output_tokens.
+				const inputTokens = response.usage.input_tokens || 0;
+				const totalReported = response.usage.total_tokens || 0;
+				const reasoningExcluded = reasoningTokens > 0 && totalReported > inputTokens + reportedOutput;
+				const outputTokens = reasoningExcluded ? reportedOutput + reasoningTokens : reportedOutput;
 				output.usage = {
 					// OpenAI includes cached tokens in input_tokens, so subtract to get non-cached input
-					input: (response.usage.input_tokens || 0) - cachedTokens,
-					output: response.usage.output_tokens || 0,
+					input: inputTokens - cachedTokens,
+					output: outputTokens,
 					cacheRead: cachedTokens,
 					cacheWrite: 0,
-					totalTokens: response.usage.total_tokens || 0,
+					totalTokens: Math.max(totalReported, inputTokens + outputTokens),
 					cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 				};
 			}

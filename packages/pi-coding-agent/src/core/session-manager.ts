@@ -402,6 +402,9 @@ export function buildSessionContext(
 				appendMessage(entry);
 			}
 		}
+		if (!foundFirstKept && compaction.firstKeptEntryId) {
+			console.warn(`[session] firstKeptEntryId "${compaction.firstKeptEntryId}" not found in session path, kept messages may be lost`);
+		}
 
 		// Emit messages after compaction
 		for (let i = compactionIdx + 1; i < path.length; i++) {

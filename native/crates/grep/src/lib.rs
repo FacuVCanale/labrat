@@ -149,14 +149,15 @@ impl MatchCollector {
 
     fn truncate_line(&self, line: &str) -> (String, bool) {
         match self.max_columns {
-            Some(max) if line.len() > max => {
+            Some(max) if line.chars().count() > max => {
+                // Find byte offset of the (max-3)th character
                 let cut = max.saturating_sub(3);
-                // Find a valid char boundary
-                let mut boundary = cut;
-                while boundary > 0 && !line.is_char_boundary(boundary) {
-                    boundary -= 1;
-                }
-                let truncated = format!("{}...", &line[..boundary]);
+                let byte_offset = line
+                    .char_indices()
+                    .nth(cut)
+                    .map(|(i, _)| i)
+                    .unwrap_or(line.len());
+                let truncated = format!("{}...", &line[..byte_offset]);
                 (truncated, true)
             }
             _ => (line.to_string(), false),

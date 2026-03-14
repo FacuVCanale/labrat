@@ -10,7 +10,7 @@
  * so the file on disk reflects every tool call up to the crash point).
  */
 
-import { writeFileSync, readFileSync, unlinkSync, existsSync } from "node:fs";
+import { writeFileSync, readFileSync, unlinkSync, existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { gsdRoot } from "./paths.js";
 
@@ -53,7 +53,9 @@ export function writeLock(
       completedUnits,
       sessionFile,
     };
-    writeFileSync(lockPath(basePath), JSON.stringify(data, null, 2), "utf-8");
+    const tmp = lockPath(basePath) + '.tmp';
+    writeFileSync(tmp, JSON.stringify(data, null, 2), "utf-8");
+    renameSync(tmp, lockPath(basePath));
   } catch { /* non-fatal */ }
 }
 

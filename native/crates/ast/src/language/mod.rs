@@ -475,7 +475,7 @@ const fn extensions(lang: SupportLang) -> &'static [&'static str] {
 		ObjC => &["m"],
 		Odin => &["odin"],
 		Php => &["php"],
-		Python => &["py", "py3", "pyi", "bzl"],
+		Python => &["py", "py3", "pyi"],
 		Regex => &[], // regex has no file extension
 		Ruby => &["rb", "rbw", "gemspec"],
 		Rust => &["rs"],
@@ -495,15 +495,14 @@ const fn extensions(lang: SupportLang) -> &'static [&'static str] {
 
 /// Guess language from file extension.
 fn from_extension(path: &Path) -> Option<SupportLang> {
-	let ext = path.extension()?.to_str()?;
-	// Special cases: Makefile has no extension
-	if ext.is_empty() {
-		let name = path.file_name()?.to_str()?;
-		return match name {
-			"Makefile" | "makefile" | "GNUmakefile" => Some(SupportLang::Make),
-			_ => None,
-		};
+	// Check filename first for extensionless files (e.g. Makefile)
+	if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+		let lower = filename.to_lowercase();
+		if lower == "makefile" || lower == "gnumakefile" {
+			return Some(SupportLang::Make);
+		}
 	}
+	let ext = path.extension()?.to_str()?;
 	SupportLang::all_langs()
 		.iter()
 		.copied()

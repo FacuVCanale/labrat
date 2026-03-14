@@ -88,10 +88,20 @@ function getExtensionKey(entryPath: string, extensionsDir: string): string {
  * Inspectable: `ls ~/.gsd/agent/extensions/`
  */
 export function initResources(agentDir: string): void {
+  const destExtensions = join(agentDir, 'extensions')
+  const versionFile = join(destExtensions, '.labrat-version')
+  const currentVersion = process.env.LABRAT_VERSION || ''
+
+  // Skip sync if version matches — avoids expensive cpSync on every launch
+  try {
+    if (currentVersion && existsSync(versionFile) && readFileSync(versionFile, 'utf-8').trim() === currentVersion) {
+      return
+    }
+  } catch { /* proceed with sync on any read error */ }
+
   mkdirSync(agentDir, { recursive: true })
 
   // Sync extensions — always overwrite so updates land on next launch
-  const destExtensions = join(agentDir, 'extensions')
   cpSync(bundledExtensionsDir, destExtensions, { recursive: true, force: true })
 
   // Sync agents
@@ -114,6 +124,11 @@ export function initResources(agentDir: string): void {
   if (existsSync(srcAgentsMd)) {
     writeFileSync(destAgentsMd, readFileSync(srcAgentsMd))
   }
+
+  // Write version marker after successful sync
+  try {
+    writeFileSync(versionFile, currentVersion, 'utf-8')
+  } catch { /* non-fatal — sync still succeeded */ }
 }
 
 /**

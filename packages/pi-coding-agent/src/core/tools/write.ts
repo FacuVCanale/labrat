@@ -94,7 +94,7 @@ export function createWriteTool(cwd: string, options?: WriteToolOptions): AgentT
 							}
 
 							resolve({
-								content: [{ type: "text", text: `Successfully wrote ${content.length} bytes to ${path}` }],
+								content: [{ type: "text", text: `Successfully wrote ${content.length} characters to ${path}` }],
 								details: undefined,
 							});
 						} catch (error: any) {

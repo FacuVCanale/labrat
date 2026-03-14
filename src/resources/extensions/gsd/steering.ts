@@ -104,7 +104,9 @@ export function clearSteeringDirective(sliceDir: string): void {
  */
 export function writeSteeringFocus(sliceDir: string, message: string): void {
   const filePath = join(sliceDir, STEERING_FOCUS_FILE);
-  writeFileSync(filePath, message + '\n', 'utf-8');
+  const tmp = filePath + '.tmp';
+  writeFileSync(tmp, message + '\n', 'utf-8');
+  renameSync(tmp, filePath);
 }
 
 /**

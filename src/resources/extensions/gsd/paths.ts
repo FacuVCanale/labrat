@@ -54,19 +54,27 @@ export function buildTaskFileName(taskId: string, suffix: string): string {
  * Exact match first (M001), then prefix match (M001-SOMETHING) for
  * backward compatibility with legacy descriptor directories.
  * Returns the full directory name or null.
+ *
+ * An optional `dirCache` avoids repeated readdirSync calls on the same
+ * parent during a single derivation pass.
  */
-export function resolveDir(parentDir: string, idPrefix: string): string | null {
+export function resolveDir(parentDir: string, idPrefix: string, dirCache?: Map<string, string[]>): string | null {
   if (!existsSync(parentDir)) return null;
   try {
-    const entries = readdirSync(parentDir, { withFileTypes: true });
+    let names: string[];
+    if (dirCache?.has(parentDir)) {
+      names = dirCache.get(parentDir)!;
+    } else {
+      const entries = readdirSync(parentDir, { withFileTypes: true });
+      names = entries.filter(e => e.isDirectory()).map(e => e.name);
+      dirCache?.set(parentDir, names);
+    }
     // Exact match first (current convention: bare ID)
-    const exact = entries.find(e => e.isDirectory() && e.name === idPrefix);
-    if (exact) return exact.name;
+    const exact = names.find(n => n === idPrefix);
+    if (exact) return exact;
     // Prefix match for legacy descriptor dirs: M001-SOMETHING
-    const prefixed = entries.find(
-      e => e.isDirectory() && e.name.startsWith(idPrefix + "-")
-    );
-    return prefixed ? prefixed.name : null;
+    const prefixed = names.find(n => n.startsWith(idPrefix + "-"));
+    return prefixed ?? null;
   } catch {
     return null;
   }
@@ -78,12 +86,21 @@ export function resolveDir(parentDir: string, idPrefix: string): string | null {
  *   1. Direct: ID-SUFFIX.md (e.g. M001-ROADMAP.md, T03-PLAN.md)
  *   2. Legacy descriptor: ID-DESCRIPTOR-SUFFIX.md (e.g. T03-INSTALL-PACKAGES-PLAN.md)
  *   3. Legacy bare: suffix.md (e.g. roadmap.md)
+ *
+ * An optional `dirCache` avoids repeated readdirSync calls on the same
+ * directory during a single derivation pass.
  */
-export function resolveFile(dir: string, idPrefix: string, suffix: string): string | null {
+export function resolveFile(dir: string, idPrefix: string, suffix: string, dirCache?: Map<string, string[]>): string | null {
   if (!existsSync(dir)) return null;
   const target = `${idPrefix}-${suffix}.md`.toUpperCase();
   try {
-    const entries = readdirSync(dir);
+    let entries: string[];
+    if (dirCache?.has(dir)) {
+      entries = dirCache.get(dir)!;
+    } else {
+      entries = readdirSync(dir);
+      dirCache?.set(dir, entries);
+    }
     // Direct match: ID-SUFFIX.md
     const direct = entries.find(e => e.toUpperCase() === target);
     if (direct) return direct;
@@ -105,15 +122,25 @@ export function resolveFile(dir: string, idPrefix: string, suffix: string): stri
 /**
  * Find all task files matching a pattern in a tasks directory.
  * Returns sorted file names matching T##-SUFFIX.md or legacy T##-*-SUFFIX.md
+ *
+ * An optional `dirCache` avoids repeated readdirSync calls on the same
+ * directory during a single derivation pass.
  */
-export function resolveTaskFiles(tasksDir: string, suffix: string): string[] {
+export function resolveTaskFiles(tasksDir: string, suffix: string, dirCache?: Map<string, string[]>): string[] {
   if (!existsSync(tasksDir)) return [];
   try {
     // Current convention: T01-PLAN.md
     const currentPattern = new RegExp(`^T\\d+-${suffix}\\.md$`, "i");
     // Legacy convention: T01-INSTALL-PACKAGES-PLAN.md
     const legacyPattern = new RegExp(`^T\\d+-.*-${suffix}\\.md$`, "i");
-    return readdirSync(tasksDir)
+    let entries: string[];
+    if (dirCache?.has(tasksDir)) {
+      entries = dirCache.get(tasksDir)!;
+    } else {
+      entries = readdirSync(tasksDir);
+      dirCache?.set(tasksDir, entries);
+    }
+    return entries
       .filter(f => currentPattern.test(f) || legacyPattern.test(f))
       .sort();
   } catch {
@@ -166,8 +193,8 @@ export function relGsdRootFile(key: GSDRootFileKey): string {
  * Resolve the full path to a milestone directory.
  * Returns null if the milestone doesn't exist.
  */
-export function resolveMilestonePath(basePath: string, milestoneId: string): string | null {
-  const dir = resolveDir(milestonesDir(basePath), milestoneId);
+export function resolveMilestonePath(basePath: string, milestoneId: string, dirCache?: Map<string, string[]>): string | null {
+  const dir = resolveDir(milestonesDir(basePath), milestoneId, dirCache);
   return dir ? join(milestonesDir(basePath), dir) : null;
 }
 
@@ -175,11 +202,11 @@ export function resolveMilestonePath(basePath: string, milestoneId: string): str
  * Resolve the full path to a milestone file (e.g. ROADMAP, CONTEXT, RESEARCH).
  */
 export function resolveMilestoneFile(
-  basePath: string, milestoneId: string, suffix: string
+  basePath: string, milestoneId: string, suffix: string, dirCache?: Map<string, string[]>
 ): string | null {
-  const mDir = resolveMilestonePath(basePath, milestoneId);
+  const mDir = resolveMilestonePath(basePath, milestoneId, dirCache);
   if (!mDir) return null;
-  const file = resolveFile(mDir, milestoneId, suffix);
+  const file = resolveFile(mDir, milestoneId, suffix, dirCache);
   return file ? join(mDir, file) : null;
 }
 
@@ -187,12 +214,12 @@ export function resolveMilestoneFile(
  * Resolve the full path to a slice directory within a milestone.
  */
 export function resolveSlicePath(
-  basePath: string, milestoneId: string, sliceId: string
+  basePath: string, milestoneId: string, sliceId: string, dirCache?: Map<string, string[]>
 ): string | null {
-  const mDir = resolveMilestonePath(basePath, milestoneId);
+  const mDir = resolveMilestonePath(basePath, milestoneId, dirCache);
   if (!mDir) return null;
   const slicesDir = join(mDir, "slices");
-  const dir = resolveDir(slicesDir, sliceId);
+  const dir = resolveDir(slicesDir, sliceId, dirCache);
   return dir ? join(slicesDir, dir) : null;
 }
 
@@ -200,11 +227,11 @@ export function resolveSlicePath(
  * Resolve the full path to a slice file (e.g. PLAN, RESEARCH, CONTEXT, SUMMARY).
  */
 export function resolveSliceFile(
-  basePath: string, milestoneId: string, sliceId: string, suffix: string
+  basePath: string, milestoneId: string, sliceId: string, suffix: string, dirCache?: Map<string, string[]>
 ): string | null {
-  const sDir = resolveSlicePath(basePath, milestoneId, sliceId);
+  const sDir = resolveSlicePath(basePath, milestoneId, sliceId, dirCache);
   if (!sDir) return null;
-  const file = resolveFile(sDir, sliceId, suffix);
+  const file = resolveFile(sDir, sliceId, suffix, dirCache);
   return file ? join(sDir, file) : null;
 }
 
@@ -212,9 +239,9 @@ export function resolveSliceFile(
  * Resolve the tasks directory within a slice.
  */
 export function resolveTasksDir(
-  basePath: string, milestoneId: string, sliceId: string
+  basePath: string, milestoneId: string, sliceId: string, dirCache?: Map<string, string[]>
 ): string | null {
-  const sDir = resolveSlicePath(basePath, milestoneId, sliceId);
+  const sDir = resolveSlicePath(basePath, milestoneId, sliceId, dirCache);
   if (!sDir) return null;
   const tDir = join(sDir, "tasks");
   return existsSync(tDir) ? tDir : null;
@@ -225,11 +252,11 @@ export function resolveTasksDir(
  */
 export function resolveTaskFile(
   basePath: string, milestoneId: string, sliceId: string,
-  taskId: string, suffix: string
+  taskId: string, suffix: string, dirCache?: Map<string, string[]>
 ): string | null {
-  const tDir = resolveTasksDir(basePath, milestoneId, sliceId);
+  const tDir = resolveTasksDir(basePath, milestoneId, sliceId, dirCache);
   if (!tDir) return null;
-  const file = resolveFile(tDir, taskId, suffix);
+  const file = resolveFile(tDir, taskId, suffix, dirCache);
   return file ? join(tDir, file) : null;
 }
 
@@ -239,8 +266,8 @@ export function resolveTaskFile(
  * Build relative .gsd/ path to a milestone directory.
  * Uses the actual directory name on disk if it exists, otherwise bare ID.
  */
-export function relMilestonePath(basePath: string, milestoneId: string): string {
-  const dir = resolveDir(milestonesDir(basePath), milestoneId);
+export function relMilestonePath(basePath: string, milestoneId: string, dirCache?: Map<string, string[]>): string {
+  const dir = resolveDir(milestonesDir(basePath), milestoneId, dirCache);
   if (dir) return `.gsd/milestones/${dir}`;
   return `.gsd/milestones/${milestoneId}`;
 }
@@ -249,12 +276,12 @@ export function relMilestonePath(basePath: string, milestoneId: string): string 
  * Build relative .gsd/ path to a milestone file.
  */
 export function relMilestoneFile(
-  basePath: string, milestoneId: string, suffix: string
+  basePath: string, milestoneId: string, suffix: string, dirCache?: Map<string, string[]>
 ): string {
-  const mRel = relMilestonePath(basePath, milestoneId);
-  const mDir = resolveMilestonePath(basePath, milestoneId);
+  const mRel = relMilestonePath(basePath, milestoneId, dirCache);
+  const mDir = resolveMilestonePath(basePath, milestoneId, dirCache);
   if (mDir) {
-    const file = resolveFile(mDir, milestoneId, suffix);
+    const file = resolveFile(mDir, milestoneId, suffix, dirCache);
     if (file) return `${mRel}/${file}`;
   }
   return `${mRel}/${buildMilestoneFileName(milestoneId, suffix)}`;
@@ -264,13 +291,13 @@ export function relMilestoneFile(
  * Build relative .gsd/ path to a slice directory.
  */
 export function relSlicePath(
-  basePath: string, milestoneId: string, sliceId: string
+  basePath: string, milestoneId: string, sliceId: string, dirCache?: Map<string, string[]>
 ): string {
-  const mRel = relMilestonePath(basePath, milestoneId);
-  const mDir = resolveMilestonePath(basePath, milestoneId);
+  const mRel = relMilestonePath(basePath, milestoneId, dirCache);
+  const mDir = resolveMilestonePath(basePath, milestoneId, dirCache);
   if (mDir) {
     const slicesDir = join(mDir, "slices");
-    const dir = resolveDir(slicesDir, sliceId);
+    const dir = resolveDir(slicesDir, sliceId, dirCache);
     if (dir) return `${mRel}/slices/${dir}`;
   }
   return `${mRel}/slices/${sliceId}`;
@@ -280,12 +307,12 @@ export function relSlicePath(
  * Build relative .gsd/ path to a slice file.
  */
 export function relSliceFile(
-  basePath: string, milestoneId: string, sliceId: string, suffix: string
+  basePath: string, milestoneId: string, sliceId: string, suffix: string, dirCache?: Map<string, string[]>
 ): string {
-  const sRel = relSlicePath(basePath, milestoneId, sliceId);
-  const sDir = resolveSlicePath(basePath, milestoneId, sliceId);
+  const sRel = relSlicePath(basePath, milestoneId, sliceId, dirCache);
+  const sDir = resolveSlicePath(basePath, milestoneId, sliceId, dirCache);
   if (sDir) {
-    const file = resolveFile(sDir, sliceId, suffix);
+    const file = resolveFile(sDir, sliceId, suffix, dirCache);
     if (file) return `${sRel}/${file}`;
   }
   return `${sRel}/${buildSliceFileName(sliceId, suffix)}`;
@@ -296,12 +323,12 @@ export function relSliceFile(
  */
 export function relTaskFile(
   basePath: string, milestoneId: string, sliceId: string,
-  taskId: string, suffix: string
+  taskId: string, suffix: string, dirCache?: Map<string, string[]>
 ): string {
-  const sRel = relSlicePath(basePath, milestoneId, sliceId);
-  const tDir = resolveTasksDir(basePath, milestoneId, sliceId);
+  const sRel = relSlicePath(basePath, milestoneId, sliceId, dirCache);
+  const tDir = resolveTasksDir(basePath, milestoneId, sliceId, dirCache);
   if (tDir) {
-    const file = resolveFile(tDir, taskId, suffix);
+    const file = resolveFile(tDir, taskId, suffix, dirCache);
     if (file) return `${sRel}/tasks/${file}`;
   }
   return `${sRel}/tasks/${buildTaskFileName(taskId, suffix)}`;

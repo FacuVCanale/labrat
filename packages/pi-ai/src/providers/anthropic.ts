@@ -196,7 +196,7 @@ function mergeHeaders(...headerSources: (Record<string, string> | undefined)[]):
  * Returns undefined if no valid delay is found or if the delay is in the past.
  */
 export function extractRetryAfterMs(headers: Headers | { get(name: string): string | null }, errorText = ""): number | undefined {
-	const normalizeDelay = (ms: number): number | undefined => (ms > 0 ? Math.ceil(ms + 1000) : undefined);
+	const normalizeDelay = (ms: number): number | undefined => (ms >= 0 ? Math.ceil(ms + 1000) : undefined);
 
 	const retryAfter = headers.get("retry-after");
 	if (retryAfter) {

@@ -432,6 +432,7 @@ export function generateSyncReport(
   commits: UpstreamCommitInfo[],
   options: SyncReportOptions = {},
 ): string {
+  clearLabratFilesCache();
   const useColor = options.useColor ?? !process.env.NO_COLOR;
   const c = makeColors(useColor);
 

@@ -332,7 +332,9 @@ export class AgentSession {
 		);
 
 		// Keep queue alive if an event handler fails
-		this._agentEventQueue.catch(() => {});
+		this._agentEventQueue.catch((err) => {
+			console.error("[agent-session] Event processing error:", err);
+		});
 	};
 
 	private _createRetryPromiseForAgentEnd(event: AgentEvent): void {
