@@ -12,7 +12,11 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 ## Current State
 
-GSD-2 v2.10.6 merged and rebranded as Labrat. Full codebase builds clean. State machine extended with dual-mode operation: `experimenting` phase alongside existing development flow, triggered by CAMPAIGN.json presence. Research types defined (ExperimentResult, MetricDefinition, EvaluationConfig, KeepDiscardDecision, CampaignConfig, ExperimentContext). Git experiment lifecycle (commit/revert) operational with greppable commit conventions. `run-experiment` unit type routed through all dispatch sites. Eval pipeline complete: subprocess execution with timeout, JSON metric parsing from mixed stdout, multi-run median aggregation, direction-aware weighted composite scoring, keep/discard decisions with git revert on discard, JSONL experiment log. handleAgentEnd wired to trigger eval post-processing for run-experiment units. Research prompts operational: `buildExperimentPrompt()` assembles five-section context (campaign overview, target files, best metrics, compressed history, instructions) with safety boundary enforcement. `extractDiffStat()` provides meaningful change descriptions. Operational supervision complete: crash recovery detects and reverts orphan experiment commits on restart, per-experiment and campaign-level budget guards pause before overspending, timeout recovery handles run-experiment units, max-experiment guard prevents unbounded loops, lastProgressAt prevents false idle detection. Live MLOps integration complete: MLFlowClient (REST) and WandbClient (GraphQL/filestream) with circuit breaker resilience, non-fatal hooks at all three lifecycle points in auto.ts, CampaignConfig.mlops optional field, dashboard URL resolver for morning report. CLI and morning report complete: `labrat report` reads campaign data and prints formatted terminal summary, `labrat start` parses research flags and bootstraps campaign scaffold with auto-start. `/gsd report` interactive command. Karpathy smoke test harness with deterministic hash-based metrics validates eval pipeline. All 15 M001 requirements validated. 411+ contract/integration tests across all subsystems. M001 complete — ready for UAT and M002 planning.
+**M001 (Core Research Loop) complete.** All 15 requirements validated across 7 slices with 480 contract/integration tests passing.
+
+The full research engine is operational: GSD-2 v2.10.6 rebranded as Labrat with dual-mode state machine (`experimenting` phase alongside development flow, triggered by CAMPAIGN.json). Eval pipeline handles subprocess execution with timeout, JSON metric parsing, multi-run median aggregation, direction-aware weighted composite scoring, and keep/discard decisions with automatic git revert. Research prompts deliver five-section fresh context per experiment. Crash recovery detects and reverts orphan experiment commits on restart. Budget guards (per-experiment and campaign-level) pause before overspending. Live W&B and MLFlow REST integration with circuit breaker resilience. CLI (`labrat start`, `labrat report`) and 7-section terminal morning report operational. Karpathy smoke test harness validates the eval pipeline with deterministic metrics.
+
+Ready for M002 planning (Structured Research & Intelligence) and manual UAT of the full autonomous loop with a real LLM.
 
 ## Architecture / Key Patterns
 
@@ -30,6 +34,6 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 
 ## Milestone Sequence
 
-- [x] M001: Core Research Loop — Adapt GSD-2 into a working autonomous experiment engine with eval, keep/discard, crash recovery, live MLOps integration, and CLI
+- [x] M001: Core Research Loop — Autonomous experiment engine with eval, keep/discard, crash recovery, live MLOps integration, CLI, and morning report. 15 requirements validated. 480 tests.
 - [ ] M002: Structured Research & Intelligence — Research agenda planning, simplicity-aware decisions, runtime steering, multi-file experiments, experiment sequencing
 - [ ] M003: Upstream Sync & Ecosystem — Mechanism for analyzing and integrating GSD-2 upstream improvements into Labrat
