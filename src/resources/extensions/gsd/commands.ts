@@ -10,7 +10,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deriveState } from "./state.js";
 import { GSDDashboardOverlay } from "./dashboard-overlay.js";
-import { showQueue, showDiscuss } from "./guided-flow.js";
+import { showQueue, showDiscuss, showPlan } from "./guided-flow.js";
 import { startAuto, stopAuto, isAutoActive, isAutoPaused, isStepMode } from "./auto.js";
 import {
   getGlobalGSDPreferencesPath,
@@ -53,10 +53,10 @@ function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportT
 
 export function registerGSDCommand(pi: ExtensionAPI): void {
   pi.registerCommand("gsd", {
-    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|prefs|doctor|migrate|remote|report",
+    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|plan|prefs|doctor|migrate|remote|report",
 
     getArgumentCompletions: (prefix: string) => {
-      const subcommands = ["next", "auto", "stop", "status", "queue", "discuss", "prefs", "doctor", "migrate", "remote", "report"];
+      const subcommands = ["next", "auto", "stop", "status", "queue", "discuss", "plan", "prefs", "doctor", "migrate", "remote", "report"];
       const parts = prefix.trim().split(/\s+/);
 
       if (parts.length <= 1) {
@@ -151,6 +151,11 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
         return;
       }
 
+      if (trimmed === "plan") {
+        await showPlan(ctx, pi, process.cwd());
+        return;
+      }
+
       if (trimmed === "migrate" || trimmed.startsWith("migrate ")) {
         await handleMigrate(trimmed.replace(/^migrate\s*/, "").trim(), ctx, pi);
         return;
@@ -173,7 +178,7 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
       }
 
       ctx.ui.notify(
-        `Unknown: /gsd ${trimmed}. Use /gsd, /gsd next, /gsd auto, /gsd stop, /gsd status, /gsd queue, /gsd discuss, /gsd prefs [global|project|status|wizard|setup], /gsd doctor [audit|fix|heal] [M###/S##], /gsd migrate <path>, /gsd remote [slack|discord|status|disconnect], or /gsd report.`,
+        `Unknown: /gsd ${trimmed}. Use /gsd, /gsd next, /gsd auto, /gsd stop, /gsd status, /gsd queue, /gsd discuss, /gsd plan, /gsd prefs [global|project|status|wizard|setup], /gsd doctor [audit|fix|heal] [M###/S##], /gsd migrate <path>, /gsd remote [slack|discord|status|disconnect], or /gsd report.`,
         "warning",
       );
     },

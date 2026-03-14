@@ -283,57 +283,25 @@ Guidelines:
 - Description: Experiments can modify multiple files. Scope of modification specified per campaign.
 - Validation: M002/S01 — `validateTargetFiles` checks `git diff --name-only` against `targetFiles[]`. Violations trigger immediate revert without eval. Git failure safely defaults to valid. 31 contract tests.
 
-## Deferred
-
 ### R016 — Research Agenda Planning
 - Class: core-capability
-- Status: deferred
-- Description: Discussion flow for capturing research question, dimensions to explore, evaluation criteria. Auto-decomposition into planned experiments. Reassessment after batches.
-- Why it matters: Structured exploration is more efficient than free exploration for complex research questions.
-- Source: user
-- Primary owning slice: M002
-- Supporting slices: none
-- Validation: unmapped
-- Notes: Deferred to M002. MVP supports free exploration; structured agendas come later.
-
-### R017 — Simplicity-Aware Keep/Discard
-- Class: differentiator
 - Status: validated
-- Description: Beyond metric improvement, consider code complexity. Prefer simpler solutions over marginal improvements. Configurable weight.
-- Why it matters: Karpathy's insight — simpler code that performs similarly is often better than complex code with marginal gains.
-- Source: user
-- Primary owning slice: M002/S01
-- Supporting slices: none
-- Validation: M002/S01 — `computeSimplicityScore` produces 0–1 score from diff stats via `1/(1+totalChurn)`. `makeKeepDiscardDecision` blends metric and simplicity scores when `simplicityWeight > 0`, prefers simpler code when metrics are within margin. Weight=0/absent produces identical behavior to M001. 39 contract tests.
-- Notes: Diff-stat based (language-agnostic). Default-off via `simplicityWeight: 0`.
+- Description: Discussion flow for capturing research question, dimensions to explore, evaluation criteria. Auto-decomposition into planned experiments. Reassessment after batches.
+- Validation: M002/S02 — `labrat plan` with campaign-aware guards, `plan-agenda.md` template with AgendaConfig JSON schema, `parseAgenda()` validation, `checkAutoStartAfterPlan()` auto-start bridge. 45 + 106 contract tests.
+
+### R020 — Experiment Dependency/Sequencing
+- Class: core-capability
+- Status: validated
+- Description: Some experiments depend on others. Support for sequential phases within a campaign.
+- Validation: M002/S02 — Phase boundary detection via `checkAndAdvancePhase()`, phase-specific prompts via `getPhasePromptOverrides()`, phase attribution via `stampPhaseIndex()`, AGENDA-STATE.json crash-recoverable. 61 + 106 contract tests.
+
+## Deferred
 
 ### R018 — Runtime Steering
 - Class: core-capability
 - Status: deferred
 - Description: `discuss` command to redirect the campaign while it runs. Reprioritize experiments, add new ideas, skip unpromising directions.
 - Why it matters: Research direction often changes based on intermediate results.
-- Source: user
-- Primary owning slice: M002
-- Supporting slices: none
-- Validation: unmapped
-- Notes: Deferred to M002.
-
-### R019 — Multi-File Experiment Scope
-- Class: core-capability
-- Status: validated
-- Description: Experiments can modify multiple files. Scope of modification specified per campaign.
-- Why it matters: Many research tasks span multiple files.
-- Source: user
-- Primary owning slice: M002/S01
-- Supporting slices: none
-- Validation: M002/S01 — `validateTargetFiles` checks `git diff --name-only HEAD~1..HEAD` against declared `targetFiles[]`. Violations trigger immediate revert without running eval. Git failure safely defaults to valid. 31 contract tests.
-- Notes: Target file list declared in CAMPAIGN.json. Validation is post-commit, pre-eval.
-
-### R020 — Experiment Dependency/Sequencing
-- Class: core-capability
-- Status: deferred
-- Description: Some experiments depend on others. Support for sequential phases within a campaign.
-- Why it matters: Complex research has natural phases where later experiments build on earlier findings.
 - Source: user
 - Primary owning slice: M002
 - Supporting slices: none
@@ -427,11 +395,11 @@ Guidelines:
 | R013 | primary-user-loop | validated | M001/S07 | M001/S06 | S07 |
 | R014 | core-capability | validated | M001/S04 | none | S04 |
 | R015 | constraint | validated | M001/S01 | none | S01 |
-| R016 | core-capability | deferred | M002 | none | unmapped |
+| R016 | core-capability | validated | M002/S02 | none | M002/S02 |
 | R017 | differentiator | validated | M002/S01 | none | M002/S01 |
 | R018 | core-capability | deferred | M002 | none | unmapped |
 | R019 | core-capability | validated | M002/S01 | none | M002/S01 |
-| R020 | core-capability | deferred | M002 | none | unmapped |
+| R020 | core-capability | validated | M002/S02 | none | M002/S02 |
 | R021 | anti-feature | out-of-scope | none | none | n/a |
 | R022 | anti-feature | out-of-scope | none | none | n/a |
 | R023 | anti-feature | out-of-scope | none | none | n/a |
@@ -443,5 +411,5 @@ Guidelines:
 
 - Active requirements: 0
 - Mapped to slices: 0
-- Validated: 17
+- Validated: 19
 - Unmapped active requirements: 0

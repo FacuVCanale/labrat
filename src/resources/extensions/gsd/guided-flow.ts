@@ -24,6 +24,9 @@ import { execSync, execFileSync } from "node:child_process";
 import { ensureGitignore, ensurePreferences, untrackRuntimeFiles } from "./gitignore.js";
 import { loadEffectiveGSDPreferences } from "./preferences.js";
 import { showConfirm } from "../shared/confirm-ui.js";
+import { parseCampaignConfig, countExperiments } from "./state.js";
+import { parseAgenda, writeAgendaState, createInitialAgendaState } from "./agenda.js";
+import type { CampaignConfig } from "./types.js";
 
 // ─── Auto-start after discuss ─────────────────────────────────────────────────
 
@@ -56,6 +59,43 @@ export function checkAutoStartAfterDiscuss(): boolean {
 
   pendingAutoStart = null;
   startAuto(ctx, pi, basePath, false, { step }).catch(() => {});
+  return true;
+}
+
+// ─── Auto-start after plan ──────────────────────────────────────────────────
+
+/** Stashed context for auto-starting after plan phase writes an agenda */
+let pendingPlanAutoStart: {
+  ctx: ExtensionCommandContext;
+  pi: ExtensionAPI;
+  basePath: string;
+  milestoneId: string;
+  sliceId: string;
+} | null = null;
+
+/** Called from agent_end to check if auto-mode should start after plan */
+export function checkAutoStartAfterPlan(): boolean {
+  if (!pendingPlanAutoStart) return false;
+
+  const { ctx, pi, basePath, milestoneId, sliceId } = pendingPlanAutoStart;
+
+  // Check if CAMPAIGN.json now has an agenda field
+  const sliceDir = resolveSlicePath(basePath, milestoneId, sliceId);
+  if (!sliceDir) return false;
+
+  const campaign = parseCampaignConfig(sliceDir);
+  if (!campaign?.agenda) return false; // no agenda yet — keep waiting
+
+  // Validate the agenda
+  const agenda = parseAgenda(campaign.agenda, campaign.maxExperiments);
+  if (!agenda) return false; // invalid agenda — keep waiting
+
+  // Initialize AGENDA-STATE.json
+  const initialState = createInitialAgendaState(agenda);
+  writeAgendaState(sliceDir, initialState);
+
+  pendingPlanAutoStart = null;
+  startAuto(ctx, pi, basePath, false).catch(() => {});
   return true;
 }
 
@@ -286,6 +326,181 @@ async function buildExistingMilestonesContext(
   }
 
   return sections.join("\n\n---\n\n");
+}
+
+// ─── Plan Flow (Research Agenda) ─────────────────────────────────────────────
+
+/**
+ * Build a rich prompt for the plan command, inlining campaign config and context.
+ * Returns a prompt string ready for dispatchWorkflow.
+ */
+export async function buildPlanPrompt(
+  mid: string,
+  sid: string,
+  basePath: string,
+): Promise<string> {
+  const sliceDir = resolveSlicePath(basePath, mid, sid);
+  if (!sliceDir) return '';
+
+  const campaign = parseCampaignConfig(sliceDir);
+  if (!campaign) return '';
+
+  // Build target file list
+  const targetFileList = campaign.targetFiles.length > 0
+    ? campaign.targetFiles.map(f => `- \`${f}\``).join('\n')
+    : '_(no target files specified)_';
+
+  // Build metric definitions
+  const metricDefinitions = campaign.evalConfig.metrics.length > 0
+    ? campaign.evalConfig.metrics.map(m =>
+      `- **${m.name}** — direction: ${m.direction}, weight: ${m.weight}`
+    ).join('\n')
+    : '_(no metrics defined)_';
+
+  // Build existing experiment context if any
+  let existingContext = '';
+  const expCount = countExperiments(sliceDir);
+  if (expCount > 0) {
+    existingContext = `\n\n**Note:** This campaign already has ${expCount} experiment(s) recorded. The agenda should account for remaining experiment budget.`;
+  }
+
+  // Milestone context and decisions for grounding
+  const contextPath = resolveMilestoneFile(basePath, mid, "CONTEXT");
+  const contextRel = relMilestoneFile(basePath, mid, "CONTEXT");
+  const contextContent = contextPath ? await loadFile(contextPath) : null;
+
+  const decisionsPath = resolveGsdRootFile(basePath, "DECISIONS");
+  const decisionsContent = existsSync(decisionsPath) ? await loadFile(decisionsPath) : null;
+
+  const inlinedSections: string[] = [];
+  if (contextContent) {
+    inlinedSections.push(`### Milestone Context\nSource: \`${contextRel}\`\n\n${contextContent.trim()}`);
+  }
+  if (decisionsContent) {
+    inlinedSections.push(`### Decisions Register\nSource: \`${relGsdRootFile("DECISIONS")}\`\n\n${decisionsContent.trim()}`);
+  }
+
+  const existingContextBlock = inlinedSections.length > 0
+    ? inlinedSections.join('\n\n---\n\n')
+    : '';
+
+  return loadPrompt("plan-agenda", {
+    researchQuestion: campaign.researchQuestion ?? campaign.name,
+    campaignName: campaign.name,
+    targetFileList,
+    metricDefinitions,
+    maxExperiments: String(campaign.maxExperiments),
+    existingContext: existingContextBlock + existingContext,
+    sliceDir: relSlicePath(basePath, mid, sid),
+  });
+}
+
+/**
+ * /gsd plan — show a picker of slices with CAMPAIGN.json files
+ * and run an agenda planning discussion.
+ */
+export async function showPlan(
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+  basePath: string,
+): Promise<void> {
+  // Guard: no .gsd/ project
+  if (!existsSync(join(basePath, ".gsd"))) {
+    ctx.ui.notify("No GSD project found. Run /gsd to start one first.", "warning");
+    return;
+  }
+
+  const state = await deriveState(basePath);
+
+  // Guard: no active milestone
+  if (!state.activeMilestone) {
+    ctx.ui.notify("No active milestone. Run /gsd to create one first.", "warning");
+    return;
+  }
+
+  const mid = state.activeMilestone.id;
+
+  // Guard: no roadmap yet
+  const roadmapFile = resolveMilestoneFile(basePath, mid, "ROADMAP");
+  const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
+  if (!roadmapContent) {
+    ctx.ui.notify("No roadmap yet for this milestone. Run /gsd to plan first.", "warning");
+    return;
+  }
+
+  const roadmap = parseRoadmap(roadmapContent);
+
+  // Find slices with CAMPAIGN.json files
+  const slicesWithCampaigns: { id: string; title: string; campaign: CampaignConfig }[] = [];
+  for (const s of roadmap.slices) {
+    if (s.done) continue;
+    const sDir = resolveSlicePath(basePath, mid, s.id);
+    if (!sDir) continue;
+    const campaign = parseCampaignConfig(sDir);
+    if (campaign) {
+      slicesWithCampaigns.push({ id: s.id, title: s.title, campaign });
+    }
+  }
+
+  if (slicesWithCampaigns.length === 0) {
+    ctx.ui.notify("No slices with CAMPAIGN.json found. Create a campaign first.", "warning");
+    return;
+  }
+
+  let chosen: { id: string; title: string; campaign: CampaignConfig };
+
+  if (slicesWithCampaigns.length === 1) {
+    chosen = slicesWithCampaigns[0];
+  } else {
+    // Multiple campaigns — show picker
+    const actions = slicesWithCampaigns.map((s, i) => ({
+      id: s.id,
+      label: `${s.id}: ${s.campaign.name}`,
+      description: s.campaign.researchQuestion ?? s.title,
+      recommended: i === 0,
+    }));
+
+    const choice = await showNextAction(ctx as any, {
+      title: "GSD — Plan research agenda",
+      summary: [
+        `${mid}: ${state.activeMilestone.title}`,
+        "Pick a campaign to plan an agenda for.",
+      ],
+      actions,
+      notYetMessage: "Run /gsd plan when ready.",
+    });
+
+    if (choice === "not_yet") return;
+
+    const found = slicesWithCampaigns.find(s => s.id === choice);
+    if (!found) return;
+    chosen = found;
+  }
+
+  // Check if already has an agenda
+  if (chosen.campaign.agenda) {
+    const validAgenda = parseAgenda(chosen.campaign.agenda, chosen.campaign.maxExperiments);
+    if (validAgenda) {
+      ctx.ui.notify(
+        `Campaign "${chosen.campaign.name}" already has a valid agenda with ${validAgenda.phases.length} phase(s). ` +
+        `To replan, remove the "agenda" field from CAMPAIGN.json first.`,
+        "info"
+      );
+      return;
+    }
+  }
+
+  // Build prompt and dispatch
+  const prompt = await buildPlanPrompt(mid, chosen.id, basePath);
+  if (!prompt) {
+    ctx.ui.notify("Failed to build plan prompt — campaign config may be incomplete.", "warning");
+    return;
+  }
+
+  // Stash auto-start context
+  pendingPlanAutoStart = { ctx, pi, basePath, milestoneId: mid, sliceId: chosen.id };
+
+  dispatchWorkflow(pi, prompt, "gsd-plan");
 }
 
 // ─── Discuss Flow ─────────────────────────────────────────────────────────────

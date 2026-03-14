@@ -12,6 +12,8 @@ You are executing GSD auto-mode.
 **Target Files:** {{targetFileList}}
 **Max Experiments:** {{maxExperiments}} | **Budget per Experiment:** ${{budgetPerExperiment}}
 
+{{phaseContext}}
+
 ### Evaluation Config
 
 - **Command:** `{{evalCommand}}`

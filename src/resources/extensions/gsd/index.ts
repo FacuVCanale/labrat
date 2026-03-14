@@ -33,7 +33,7 @@ import { loadPrompt } from "./prompt-loader.js";
 import { deriveState } from "./state.js";
 import { isAutoActive, isAutoPaused, handleAgentEnd, pauseAuto, getAutoDashboardData, startAuto } from "./auto.js";
 import { saveActivityLog } from "./activity-log.js";
-import { checkAutoStartAfterDiscuss, getDiscussionMilestoneId } from "./guided-flow.js";
+import { checkAutoStartAfterDiscuss, checkAutoStartAfterPlan, getDiscussionMilestoneId } from "./guided-flow.js";
 import { GSDDashboardOverlay } from "./dashboard-overlay.js";
 import {
   loadEffectiveGSDPreferences,
@@ -324,10 +324,16 @@ export default function (pi: ExtensionAPI) {
     };
   });
 
-  // ── agent_end: auto-mode advancement or auto-start after discuss ───────────
+  // ── agent_end: auto-mode advancement or auto-start after discuss/plan ──────
   pi.on("agent_end", async (event, ctx: ExtensionContext) => {
     // If discuss phase just finished, start auto-mode
     if (checkAutoStartAfterDiscuss()) {
+      depthVerificationDone = false;
+      return;
+    }
+
+    // If plan phase just finished (agenda written), start auto-mode
+    if (checkAutoStartAfterPlan()) {
       depthVerificationDone = false;
       return;
     }

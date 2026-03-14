@@ -187,6 +187,36 @@ export interface GSDState {
   };
 }
 
+// ─── Research Agenda Types ────────────────────────────────────────────────
+
+export interface ExperimentPlan {
+  description: string;
+  hypothesis: string;
+  targetFocus: string;
+}
+
+export interface AgendaPhase {
+  name: string;
+  dimension: string;
+  experimentsPerPhase: number;
+  goal: string;
+  experimentPlans?: ExperimentPlan[];
+}
+
+export interface AgendaConfig {
+  phases: AgendaPhase[];
+  totalExperiments: number;
+  researchQuestion: string;
+}
+
+export interface AgendaState {
+  version: 1;
+  currentPhaseIndex: number;
+  phaseResults: Record<string, Record<string, number>>;
+  experimentRanges: Record<string, { start: number; end: number }>;
+  completedPhases: string[];
+}
+
 // ─── Research / Experiment Types ──────────────────────────────────────────
 
 // ─── Diff-Stat / Simplicity Types ─────────────────────────────────────────
@@ -235,6 +265,7 @@ export interface ExperimentResult {
   diff: string;              // git diff summary or patch reference
   timestamp?: string;        // ISO 8601 — when the result was recorded
   simplicityScore?: SimplicityScore;  // optional — present when simplicityWeight > 0 in campaign
+  phaseIndex?: number;       // optional — present when campaign has an agenda (phase attribution)
 }
 
 export interface CampaignConfig {
@@ -253,6 +284,8 @@ export interface CampaignConfig {
     entity?: string;
     trackingUri?: string;
   };
+  /** Optional structured research agenda with ordered phases. */
+  agenda?: AgendaConfig;
 }
 
 export interface ExperimentContext {

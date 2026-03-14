@@ -73,6 +73,7 @@ import {
 import { GitServiceImpl } from "./git-service.ts";
 import { getPriorSliceCompletionBlocker } from "./dispatch-guard.ts";
 import { runExperimentPostProcess, readAllExperiments, compressExperimentHistory, readBestMetrics } from "./eval-runner.js";
+import { checkAndAdvancePhase, getPhasePromptOverrides, stampPhaseIndex } from "./agenda.js";
 import { createMLOpsClient, type MLOpsClient } from "./mlops-integration.js";
 import type { GitPreferences } from "./git-service.ts";
 import { truncateToWidth, visibleWidth } from "@gsd/pi-tui";
@@ -623,6 +624,10 @@ export async function handleAgentEnd(
         const experimentNumber = countExperiments(sliceDir) + 1;
 
         const result = runExperimentPostProcess({ sliceDir, basePath, experimentNumber, commitHash });
+
+        // Phase attribution (R020): stamp phaseIndex on experiment result
+        try { const cfg = parseCampaignConfig(sliceDir); if (cfg?.agenda) stampPhaseIndex(sliceDir, result); } catch { /* non-fatal */ }
+
         const verb = result.decision.decision === "keep" ? "✓ Kept" : "✗ Discarded";
         const metricsSummary = Object.entries(result.metrics)
           .map(([k, v]) => `${k}=${typeof v === "number" ? v.toFixed(4) : v}`)
@@ -1425,6 +1430,14 @@ async function dispatchNextUnit(
       dispatchedExpNum = expNum;
       unitType = "run-experiment";
       unitId = `${mid}/${sid}`;
+      // Phase boundary detection (R020: agenda-driven sequencing)
+      const sliceDir = resolveSlicePath(basePath, mid, sid);
+      const config = parseCampaignConfig(sliceDir);
+      if (config?.agenda) {
+        const msg = checkAndAdvancePhase(sliceDir, config.agenda, expNum, readAllExperiments(sliceDir));
+        if (msg) ctx.ui.notify(msg, "info");
+      }
+
       prompt = await buildExperimentPrompt(mid, sid, basePath, expNum);
 
     } else if (state.phase === "executing" && state.activeTask) {
@@ -1974,14 +1987,19 @@ async function buildExperimentPrompt(
 
   // Read experiment history
   const allExperiments = readAllExperiments(sliceDir);
-  const historyBlock = compressExperimentHistory(allExperiments);
-  const experimentHistory = historyBlock || '_No prior experiments — this is the first one._';
 
-  // Read best metrics
+  // Read best metrics (before phase-aware override)
   const bestMetricsRaw = readBestMetrics(sliceDir);
+  // Phase-aware context injection (R020): scope history/metrics to current phase when agenda exists
+  const { phaseContext, experiments: effectiveExperiments, bestMetrics: effectiveBestMetrics } =
+    config.agenda ? getPhasePromptOverrides(sliceDir, config.agenda, allExperiments, bestMetricsRaw) :
+    { phaseContext: '', experiments: allExperiments, bestMetrics: bestMetricsRaw };
+
+  const historyBlock = compressExperimentHistory(effectiveExperiments);
+  const experimentHistory = historyBlock || '_No prior experiments — this is the first one._';
   let bestMetricsBlock: string;
-  if (bestMetricsRaw && Object.keys(bestMetricsRaw).length > 0) {
-    bestMetricsBlock = Object.entries(bestMetricsRaw)
+  if (effectiveBestMetrics && Object.keys(effectiveBestMetrics).length > 0) {
+    bestMetricsBlock = Object.entries(effectiveBestMetrics)
       .map(([name, value]) => `- **${name}:** ${value.toFixed(4)}`)
       .join('\n');
   } else {
@@ -2012,6 +2030,7 @@ async function buildExperimentPrompt(
     targetFileSources: targetSources.join('\n\n'),
     bestMetrics: bestMetricsBlock,
     experimentHistory,
+    phaseContext,
   });
 }
 
