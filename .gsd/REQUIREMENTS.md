@@ -82,46 +82,46 @@ Guidelines:
 
 ### R007 — Crash Recovery for Experiments
 - Class: failure-visibility
-- Status: active
+- Status: validated
 - Description: Lock file tracks current experiment. On restart: detect interruption, revert incomplete changes, resume from clean state. No manual intervention.
 - Why it matters: Silent failure is the worst outcome. Overnight runs must survive crashes.
 - Source: user
 - Primary owning slice: M001/S05
 - Supporting slices: none
-- Validation: unmapped
+- Validation: S05 — Orphan commit detection in startAuto compares git log experiment commits vs JSONL entries, reverts orphans. Lock file enriched with experimentNumber during dispatch. run-experiment timeout handler reverts incomplete experiments. formatCrashInfo displays experiment context. 37 contract tests.
 - Notes: Adapted from GSD-2's crash recovery. Must revert incomplete experiment on resume.
 
 ### R008 — Cost & Token Tracking with Budget Ceiling
 - Class: operability
-- Status: active
+- Status: validated
 - Description: Cost tracked per experiment and per campaign total. Budget ceiling pauses before exceeding user-defined limit.
 - Why it matters: Overnight runs can be expensive. User needs cost visibility and a safety valve.
 - Source: inferred
 - Primary owning slice: M001/S05
 - Supporting slices: none
-- Validation: unmapped
+- Validation: S05 — Per-experiment budget guard pauses on overspend (strict >), degrades gracefully on zero-cost providers. Campaign-level budget_ceiling triggers at-or-over (>=). 11 budget-specific contract tests.
 - Notes: Inherited from GSD-2's metrics system. Budget ceiling already implemented.
 
 ### R009 — Timeout & Idle Supervision
 - Class: operability
-- Status: active
+- Status: validated
 - Description: Configurable timeouts per experiment and per eval execution. Idle detection for stuck agents.
 - Why it matters: Prevents runaway experiments from consuming time and money.
 - Source: inferred
 - Primary owning slice: M001/S05
 - Supporting slices: none
-- Validation: unmapped
+- Validation: S05 — run-experiment case in recoverTimedOutUnit reverts orphan commits and dispatches next unit. lastProgressAt updated after eval completion prevents false idle triggers. Contract tests verify both paths.
 - Notes: Inherited from GSD-2's timeout supervision.
 
 ### R010 — Experiment Log
 - Class: continuity
-- Status: active
+- Status: validated
 - Description: Structured JSON log of each experiment: ID, timestamp, description of change, metrics before/after, decision (keep/revert), cost, duration. Crash-survivable. Queryable and sorteable.
 - Why it matters: The log is the research artifact. Must survive crashes and be useful for analysis.
 - Source: user
 - Primary owning slice: M001/S05
 - Supporting slices: M001/S03
-- Validation: unmapped
+- Validation: S05 — ExperimentResult.timestamp populated in all three result construction paths. JSONL format crash-survivable (append-only, truncated last line recoverable). Queryable via readAllExperiments(). Contract tests verify timestamp presence.
 - Notes: Append-only, flushed to disk after each experiment.
 
 ### R011 — Live MLOps Integration
@@ -228,6 +228,30 @@ Guidelines:
 - Status: validated
 - Description: All 20+ LLM providers from GSD-2 available. Users pick whatever model they want.
 - Validation: S01 — All provider infrastructure inherited from GSD-2 unchanged, compiles clean. No providers removed or modified.
+
+### R007 — Crash Recovery for Experiments
+- Class: failure-visibility
+- Status: validated
+- Description: Lock file tracks current experiment. On restart: detect interruption, revert incomplete changes, resume from clean state. No manual intervention.
+- Validation: S05 — Orphan commit detection in startAuto, run-experiment timeout handler, lock enrichment with experimentNumber. 37 contract tests.
+
+### R008 — Cost & Token Tracking with Budget Ceiling
+- Class: operability
+- Status: validated
+- Description: Cost tracked per experiment and per campaign total. Budget ceiling pauses before exceeding user-defined limit.
+- Validation: S05 — Per-experiment budget guard pauses on overspend, degrades on zero cost. Campaign-level budget_ceiling verified. 11 budget-specific contract tests.
+
+### R009 — Timeout & Idle Supervision
+- Class: operability
+- Status: validated
+- Description: Configurable timeouts per experiment and per eval execution. Idle detection for stuck agents.
+- Validation: S05 — run-experiment timeout recovery, lastProgressAt update after eval. Contract tests verify both paths.
+
+### R010 — Experiment Log
+- Class: continuity
+- Status: validated
+- Description: Structured JSON log with ID, timestamp, metrics, decision, cost, duration. Crash-survivable. Queryable.
+- Validation: S05 — ExperimentResult.timestamp in all result paths. JSONL crash-survivable, queryable via readAllExperiments(). Contract tests.
 
 ## Deferred
 
@@ -364,10 +388,10 @@ Guidelines:
 | R004 | core-capability | validated | M001/S03 | none | S03 |
 | R005 | core-capability | validated | M001/S04 | M001/S02 | S04 |
 | R006 | continuity | validated | M001/S02 | M001/S03 | S02 |
-| R007 | failure-visibility | active | M001/S05 | none | unmapped |
-| R008 | operability | active | M001/S05 | none | unmapped |
-| R009 | operability | active | M001/S05 | none | unmapped |
-| R010 | continuity | active | M001/S05 | M001/S03 | unmapped |
+| R007 | failure-visibility | validated | M001/S05 | none | S05 |
+| R008 | operability | validated | M001/S05 | none | S05 |
+| R009 | operability | validated | M001/S05 | none | S05 |
+| R010 | continuity | validated | M001/S05 | M001/S03 | S05 |
 | R011 | integration | active | M001/S06 | none | unmapped |
 | R012 | launchability | active | M001/S07 | none | unmapped |
 | R013 | primary-user-loop | active | M001/S07 | M001/S06 | unmapped |
@@ -387,7 +411,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 7
-- Mapped to slices: 7
-- Validated: 8
+- Active requirements: 3
+- Mapped to slices: 3
+- Validated: 12
 - Unmapped active requirements: 0

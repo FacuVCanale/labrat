@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { deriveState, isSliceComplete, isMilestoneComplete } from '../state.ts';
+import { appendExperimentLog } from '../eval-runner.ts';
+import type { ExperimentResult } from '../types.ts';
 
 let passed = 0;
 let failed = 0;
@@ -648,6 +650,73 @@ Continue from step 2.
       assertEq(state.registry[2]?.status, 'active', 'summary-no-roadmap: M003 is active');
       assertEq(state.progress?.milestones?.done, 2, 'summary-no-roadmap: milestones done = 2');
       assertEq(state.progress?.milestones?.total, 3, 'summary-no-roadmap: milestones total = 3');
+    } finally {
+      cleanup(base);
+    }
+  }
+
+  // ═══ Campaign: experiments < max → experimenting ════════════════════════
+  {
+    console.log('\n=== campaign: experiments < max → experimenting ===');
+    const base = createFixtureBase();
+    try {
+      writeRoadmap(base, 'M001', `# M001: Test Milestone\n\n**Vision:** Test.\n\n## Slices\n\n- [ ] **S01: Test Slice** \`risk:low\` \`depends:[]\`\n  > After this: Done.\n`);
+      writePlan(base, 'M001', 'S01', `# S01: Test Slice\n\n## Tasks\n\n- [ ] **T01: Task one** \`est:1h\`\n`);
+
+      const sliceDir = join(base, '.gsd', 'milestones', 'M001', 'slices', 'S01');
+      writeFileSync(join(sliceDir, 'CAMPAIGN.json'), JSON.stringify({
+        name: 'test', targetFiles: ['x.py'],
+        evalConfig: { command: 'echo ok', timeout: 10, metrics: [{ name: 'acc', direction: 'max', weight: 1 }], runs: 1 },
+        maxExperiments: 5, budgetPerExperiment: 1,
+      }));
+
+      // 2 experiments logged (< 5 max)
+      for (let i = 1; i <= 2; i++) {
+        const r: ExperimentResult = {
+          id: `exp-${String(i).padStart(3, '0')}`, description: 'test', metrics: { acc: 0.9 },
+          decision: { decision: 'keep', reason: 'ok', comparison: {} }, duration: 100, cost: 0, diff: 'abc',
+        };
+        appendExperimentLog(sliceDir, r);
+      }
+
+      const state = await deriveState(base);
+      assertEq(state.phase, 'experimenting', 'campaign below max → experimenting');
+      assertEq(state.progress?.experiments?.done, 2, 'experiments done = 2');
+      assertEq(state.progress?.experiments?.total, 5, 'experiments total = 5');
+    } finally {
+      cleanup(base);
+    }
+  }
+
+  // ═══ Campaign: experiments >= max → summarizing ════════════════════════
+  {
+    console.log('\n=== campaign: experiments >= max → summarizing ===');
+    const base = createFixtureBase();
+    try {
+      writeRoadmap(base, 'M001', `# M001: Test Milestone\n\n**Vision:** Test.\n\n## Slices\n\n- [ ] **S01: Test Slice** \`risk:low\` \`depends:[]\`\n  > After this: Done.\n`);
+      writePlan(base, 'M001', 'S01', `# S01: Test Slice\n\n## Tasks\n\n- [ ] **T01: Task one** \`est:1h\`\n`);
+
+      const sliceDir = join(base, '.gsd', 'milestones', 'M001', 'slices', 'S01');
+      writeFileSync(join(sliceDir, 'CAMPAIGN.json'), JSON.stringify({
+        name: 'test', targetFiles: ['x.py'],
+        evalConfig: { command: 'echo ok', timeout: 10, metrics: [{ name: 'acc', direction: 'max', weight: 1 }], runs: 1 },
+        maxExperiments: 3, budgetPerExperiment: 1,
+      }));
+
+      // 3 experiments logged (= 3 max)
+      for (let i = 1; i <= 3; i++) {
+        const r: ExperimentResult = {
+          id: `exp-${String(i).padStart(3, '0')}`, description: 'test', metrics: { acc: 0.9 },
+          decision: { decision: 'keep', reason: 'ok', comparison: {} }, duration: 100, cost: 0, diff: 'abc',
+        };
+        appendExperimentLog(sliceDir, r);
+      }
+
+      const state = await deriveState(base);
+      assertEq(state.phase, 'summarizing', 'campaign at max → summarizing');
+      assertEq(state.progress?.experiments?.done, 3, 'experiments done = 3');
+      assertEq(state.progress?.experiments?.total, 3, 'experiments total = 3');
+      assert(state.nextAction?.includes('complete') || state.nextAction?.includes('Summarize'), 'nextAction indicates completion');
     } finally {
       cleanup(base);
     }

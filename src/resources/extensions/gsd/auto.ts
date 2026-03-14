@@ -65,6 +65,7 @@ import {
   getCurrentBranch,
   getMainBranch,
   parseSliceBranch,
+  revertExperiment,
   setActiveMilestoneId,
   switchToMain,
   mergeSliceToMain,
@@ -431,6 +432,39 @@ export async function startAuto(
         "warning",
       );
     }
+
+    // Orphan commit detection for interrupted experiments:
+    // If a run-experiment crashed after git commit but before JSONL append,
+    // the git log will have more experiment commits than JSONL entries.
+    if (crashLock.unitType === "run-experiment") {
+      try {
+        const parts = crashLock.unitId.split("/");
+        if (parts.length >= 2) {
+          const sliceDir = join(base, ".gsd", "milestones", parts[0], "slices", parts[1]);
+          const jsonlCount = countExperiments(sliceDir);
+          // Count experiment commits in git log
+          const gitLog = execSync(
+            `git log --oneline --grep="^experiment(E" --format="%s"`,
+            { cwd: base, encoding: "utf-8", timeout: 10_000 },
+          ).trim();
+          const gitExpCount = gitLog ? gitLog.split("\n").length : 0;
+
+          if (gitExpCount > jsonlCount) {
+            const orphanCount = gitExpCount - jsonlCount;
+            // Revert the most recent orphan experiment commit
+            const lastHash = execSync("git rev-parse HEAD", { cwd: base, encoding: "utf-8", timeout: 5_000 }).trim();
+            revertExperiment(base, `E${String(jsonlCount + 1).padStart(3, "0")}`, lastHash, "orphan commit from crash recovery");
+            ctx.ui.notify(
+              `Detected ${orphanCount} orphan experiment commit(s) — reverted HEAD (${lastHash.slice(0, 8)}).`,
+              "warning",
+            );
+          }
+        }
+      } catch {
+        // Non-fatal — orphan detection failure should not block recovery
+      }
+    }
+
     clearLock(base);
   }
 
@@ -570,6 +604,45 @@ export async function handleAgentEnd(
         const msg = err instanceof Error ? err.message : String(err);
         ctx.ui.notify(`Experiment eval failed (non-fatal): ${msg}`, "error");
       }
+
+      // Update lastProgressAt after eval to prevent false idle triggers
+      // (eval can take significant time, making the unit appear stale)
+      try {
+        const runtime = readUnitRuntimeRecord(basePath, currentUnit.type, currentUnit.id);
+        writeUnitRuntimeRecord(basePath, currentUnit.type, currentUnit.id, currentUnit.startedAt, {
+          lastProgressAt: Date.now(),
+          progressCount: (runtime?.progressCount ?? 0) + 1,
+          lastProgressKind: "eval-complete",
+        });
+      } catch { /* non-fatal */ }
+
+      // Per-experiment budget guard: check if this experiment's cost exceeds
+      // budget_per_experiment from research preferences. Computed from session
+      // entries (same source as snapshotUnitMetrics) without persisting yet.
+      try {
+        const researchPrefs = loadEffectiveGSDPreferences()?.preferences?.research;
+        const budgetPerExp = researchPrefs?.budget_per_experiment;
+        if (budgetPerExp !== undefined && budgetPerExp > 0) {
+          let unitCost = 0;
+          for (const entry of ctx.sessionManager.getEntries()) {
+            if (entry.type !== "message") continue;
+            const msg = (entry as any).message;
+            if (msg?.role === "assistant" && msg.usage?.cost != null) {
+              const c = msg.usage.cost;
+              unitCost += typeof c === "number" ? c : (c.total ?? 0);
+            }
+          }
+          if (unitCost > 0 && unitCost > budgetPerExp) {
+            ctx.ui.notify(
+              `Per-experiment budget exceeded: ${formatCost(unitCost)} spent vs ${formatCost(budgetPerExp)} limit. Pausing auto-mode.`,
+              "warning",
+            );
+            await pauseAuto(ctx, pi);
+            return;
+          }
+          // unitCost === 0 → provider didn't report cost; skip check (graceful degradation)
+        }
+      } catch { /* non-fatal — budget check failure should never block dispatch */ }
     }
 
     // Post-hook: fix mechanical bookkeeping the LLM may have skipped.
@@ -1161,6 +1234,7 @@ async function dispatchNextUnit(
   let unitType: string;
   let unitId: string;
   let prompt: string;
+  let dispatchedExpNum: number | undefined;
 
   if (state.phase === "complete") {
     if (currentUnit) {
@@ -1310,6 +1384,7 @@ async function dispatchNextUnit(
       const sid = state.activeSlice!.id;
       const expProgress = state.progress?.experiments;
       const expNum = (expProgress?.done ?? 0) + 1;
+      dispatchedExpNum = expNum;
       unitType = "run-experiment";
       unitId = `${mid}/${sid}`;
       prompt = await buildExperimentPrompt(mid, sid, basePath, expNum);
@@ -1487,6 +1562,16 @@ async function dispatchNextUnit(
   // session file survives with every tool call up to the crash point.
   const sessionFile = ctx.sessionManager.getSessionFile();
   writeLock(basePath, unitType, unitId, completedUnits.length, sessionFile);
+
+  // Enrich lock with experiment number for crash diagnostics
+  if (dispatchedExpNum !== undefined) {
+    try {
+      const lockFile = join(gsdRoot(basePath), "auto.lock");
+      const lockData = JSON.parse(readFileSync(lockFile, "utf-8"));
+      lockData.experimentNumber = dispatchedExpNum;
+      writeFileSync(lockFile, JSON.stringify(lockData, null, 2), "utf-8");
+    } catch { /* non-fatal */ }
+  }
 
   // On crash recovery, prepend the full recovery briefing
   // On retry (stuck detection), prepend deep diagnostic from last attempt
@@ -2756,6 +2841,51 @@ async function recoverTimedOutUnit(
       "warning",
     );
     return "paused";
+  }
+
+  // run-experiment timeout: check if experiment was logged, revert orphan if not
+  if (unitType === "run-experiment") {
+    try {
+      const parts = unitId.split("/");
+      if (parts.length >= 2) {
+        const sliceDir = join(basePath, ".gsd", "milestones", parts[0], "slices", parts[1]);
+        const jsonlCount = countExperiments(sliceDir);
+        const lockData = readCrashLock(basePath);
+        const expectedExpNum = lockData?.experimentNumber ?? (jsonlCount + 1);
+
+        // Check if this experiment was already logged
+        const experiments = readAllExperiments(sliceDir);
+        const logged = experiments.some(e => e.id === `exp-${String(expectedExpNum).padStart(3, "0")}`);
+
+        if (!logged) {
+          // Orphan experiment — revert last commit
+          try {
+            const lastHash = execSync("git rev-parse HEAD", { cwd: basePath, encoding: "utf-8", timeout: 5_000 }).trim();
+            const lastMsg = execSync("git log -1 --format=%s", { cwd: basePath, encoding: "utf-8", timeout: 5_000 }).trim();
+            if (lastMsg.startsWith("experiment(")) {
+              revertExperiment(basePath, `E${String(expectedExpNum).padStart(3, "0")}`, lastHash, "timeout recovery — experiment not logged");
+              ctx.ui.notify(
+                `Timeout recovery: reverted orphan experiment commit ${lastHash.slice(0, 8)}.`,
+                "warning",
+              );
+            }
+          } catch { /* non-fatal */ }
+        }
+
+        writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
+          phase: "recovered",
+          recoveryAttempts: recoveryAttempts + 1,
+          lastRecoveryReason: reason,
+          lastProgressAt: Date.now(),
+        });
+
+        unitRecoveryCount.delete(recoveryKey);
+        await dispatchNextUnit(ctx, pi);
+        return "recovered";
+      }
+    } catch {
+      // Non-fatal — fall through to generic handler
+    }
   }
 
   const expected = diagnoseExpectedArtifact(unitType, unitId, basePath) ?? "required durable artifact";

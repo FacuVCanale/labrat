@@ -411,6 +411,29 @@ export async function deriveState(basePath: string): Promise<GSDState> {
     const campaign = parseCampaignConfig(sliceDir);
     if (campaign) {
       const experimentsDone = countExperiments(sliceDir);
+
+      // Max-experiment guard: when all experiments are done, transition to summarizing
+      if (experimentsDone >= campaign.maxExperiments) {
+        return {
+          activeMilestone,
+          activeSlice,
+          activeTask: null,
+          phase: 'summarizing',
+          recentDecisions: [],
+          blockers: [],
+          nextAction: `Campaign "${campaign.name}" complete (${experimentsDone}/${campaign.maxExperiments} experiments). Summarize results.`,
+          activeBranch: activeBranch ?? undefined,
+          registry,
+          requirements,
+          progress: {
+            milestones: milestoneProgress,
+            slices: sliceProgress,
+            tasks: taskProgress,
+            experiments: { done: experimentsDone, total: campaign.maxExperiments },
+          },
+        };
+      }
+
       const activeTaskEntry = slicePlan.tasks.find(t => !t.done);
       return {
         activeMilestone,

@@ -64,7 +64,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Research Prompts & Fresh Context** `risk:medium` `depends:[S02]`
   > After this: LLM receives experiment-oriented prompt with target file source, prior experiment diffs, compressed history, best results — fresh context per experiment. LLM produces meaningful code modifications.
 
-- [ ] **S05: Experiment Log, Crash Recovery & Supervision** `risk:medium` `depends:[S03]`
+- [x] **S05: Experiment Log, Crash Recovery & Supervision** `risk:medium` `depends:[S03]`
   > After this: structured JSON experiment log survives crashes. Kill mid-experiment, restart, resume from clean state. Budget ceiling pauses before overspending. Timeout supervision enforced.
 
 - [ ] **S06: Live MLOps Integration** `risk:medium` `depends:[S03]`

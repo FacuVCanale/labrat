@@ -79,11 +79,15 @@ export function readCrashLock(basePath: string): LockData | null {
 
 /** Format crash info for display or injection into a prompt. */
 export function formatCrashInfo(lock: LockData): string {
-  return [
+  const lines = [
     `Previous auto-mode session was interrupted.`,
     `  Was executing: ${lock.unitType} (${lock.unitId})`,
     `  Started at: ${lock.unitStartedAt}`,
     `  Units completed before crash: ${lock.completedUnits}`,
     `  PID: ${lock.pid}`,
-  ].join("\n");
+  ];
+  if (lock.experimentNumber !== undefined) {
+    lines.push(`  Experiment number: ${lock.experimentNumber}`);
+  }
+  return lines.join("\n");
 }

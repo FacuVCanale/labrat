@@ -218,6 +218,7 @@ export interface ExperimentResult {
   duration: number;          // ms
   cost: number;              // USD
   diff: string;              // git diff summary or patch reference
+  timestamp?: string;        // ISO 8601 — when the result was recorded
 }
 
 export interface CampaignConfig {

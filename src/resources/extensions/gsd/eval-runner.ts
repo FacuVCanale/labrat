@@ -456,6 +456,7 @@ export function runExperimentPostProcess(opts: {
       duration: Date.now() - startTime,
       cost: 0,
       diff: commitHash,
+      timestamp: new Date().toISOString(),
     };
     revertExperiment(basePath, expId, commitHash, 'missing campaign config');
     appendExperimentLog(sliceDir, result);
@@ -516,6 +517,7 @@ export function runExperimentPostProcess(opts: {
       duration: Date.now() - startTime,
       cost: 0,
       diff: commitHash,
+      timestamp: new Date().toISOString(),
     };
     revertExperiment(basePath, expId, commitHash, reason);
     appendExperimentLog(sliceDir, result);
@@ -539,6 +541,7 @@ export function runExperimentPostProcess(opts: {
     duration: Date.now() - startTime,
     cost: 0,
     diff: commitHash,
+    timestamp: new Date().toISOString(),
   };
 
   // If discard, revert the experiment commit
