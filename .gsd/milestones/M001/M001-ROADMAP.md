@@ -67,7 +67,7 @@ This milestone is complete only when all are true:
 - [x] **S05: Experiment Log, Crash Recovery & Supervision** `risk:medium` `depends:[S03]`
   > After this: structured JSON experiment log survives crashes. Kill mid-experiment, restart, resume from clean state. Budget ceiling pauses before overspending. Timeout supervision enforced.
 
-- [ ] **S06: Live MLOps Integration** `risk:medium` `depends:[S03]`
+- [x] **S06: Live MLOps Integration** `risk:medium` `depends:[S03]`
   > After this: experiment metrics and orchestration metadata appear in W&B/MLFlow dashboard in real-time while the loop runs.
 
 - [ ] **S07: CLI, Morning Report & Smoke Test** `risk:low` `depends:[S04,S05,S06]`

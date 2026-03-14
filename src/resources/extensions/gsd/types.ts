@@ -228,6 +228,13 @@ export interface CampaignConfig {
   evalConfig: EvaluationConfig;
   maxExperiments: number;
   budgetPerExperiment: number;  // USD
+  /** Optional MLOps platform config for experiment logging (W&B or MLFlow). */
+  mlops?: {
+    platform: 'wandb' | 'mlflow';
+    project?: string;
+    entity?: string;
+    trackingUri?: string;
+  };
 }
 
 export interface ExperimentContext {

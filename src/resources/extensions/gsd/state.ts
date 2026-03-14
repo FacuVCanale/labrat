@@ -64,7 +64,8 @@ export function parseCampaignConfig(sliceDir: string): CampaignConfig | null {
     const raw = readFileSync(campaignPath, 'utf-8').trim();
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    // Minimal shape validation
+    // Minimal shape validation — required fields only.
+    // Optional fields (researchQuestion, mlops) pass through via the `as CampaignConfig` cast.
     if (
       typeof parsed.name !== 'string' ||
       !Array.isArray(parsed.targetFiles) ||

@@ -126,13 +126,13 @@ Guidelines:
 
 ### R011 — Live MLOps Integration
 - Class: integration
-- Status: active
+- Status: validated
 - Description: W&B and MLFlow connected via REST API in real-time while the loop runs. Labrat logs orchestration metadata (experiment ID, keep/discard, timing, cost). User's eval scripts handle domain tracking (loss curves, model artifacts) natively via their own W&B/MLFlow calls.
 - Why it matters: Users already have MLOps tools. Labrat must fit into that ecosystem, not replace it.
 - Source: user
 - Primary owning slice: M001/S06
 - Supporting slices: none
-- Validation: unmapped
+- Validation: S06 — MLFlowClient REST and WandbClient GraphQL/filestream implementations with 105 contract tests proving request shapes, auth headers, metric sanitization, circuit breaker, non-fatal error handling. Wired into auto.ts campaign lifecycle at init/log/finish. CampaignConfig.mlops optional field.
 - Notes: Two-layer integration: Labrat logs orchestration, eval scripts log domain metrics. Both write to the same platform.
 
 ### R012 — CLI Commands
@@ -252,6 +252,12 @@ Guidelines:
 - Status: validated
 - Description: Structured JSON log with ID, timestamp, metrics, decision, cost, duration. Crash-survivable. Queryable.
 - Validation: S05 — ExperimentResult.timestamp in all result paths. JSONL crash-survivable, queryable via readAllExperiments(). Contract tests.
+
+### R011 — Live MLOps Integration
+- Class: integration
+- Status: validated
+- Description: W&B and MLFlow connected via REST API in real-time while the loop runs. Labrat logs orchestration metadata.
+- Validation: S06 — MLFlowClient REST and WandbClient GraphQL/filestream with 105 contract tests. Circuit breaker, non-fatal hooks, auto.ts lifecycle wiring.
 
 ## Deferred
 
@@ -392,7 +398,7 @@ Guidelines:
 | R008 | operability | validated | M001/S05 | none | S05 |
 | R009 | operability | validated | M001/S05 | none | S05 |
 | R010 | continuity | validated | M001/S05 | M001/S03 | S05 |
-| R011 | integration | active | M001/S06 | none | unmapped |
+| R011 | integration | validated | M001/S06 | none | S06 |
 | R012 | launchability | active | M001/S07 | none | unmapped |
 | R013 | primary-user-loop | active | M001/S07 | M001/S06 | unmapped |
 | R014 | core-capability | validated | M001/S04 | none | S04 |
@@ -411,7 +417,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 3
-- Mapped to slices: 3
-- Validated: 12
+- Active requirements: 2
+- Mapped to slices: 2
+- Validated: 13
 - Unmapped active requirements: 0

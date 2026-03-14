@@ -73,6 +73,7 @@ import {
 import { GitServiceImpl } from "./git-service.ts";
 import { getPriorSliceCompletionBlocker } from "./dispatch-guard.ts";
 import { runExperimentPostProcess, readAllExperiments, compressExperimentHistory, readBestMetrics } from "./eval-runner.js";
+import { createMLOpsClient, type MLOpsClient } from "./mlops-integration.js";
 import type { GitPreferences } from "./git-service.ts";
 import { truncateToWidth, visibleWidth } from "@gsd/pi-tui";
 import { makeUI, GLYPH, INDENT } from "../shared/ui.js";
@@ -157,6 +158,9 @@ let currentMilestoneId: string | null = null;
 /** Model the user had selected before auto-mode started */
 let originalModelId: string | null = null;
 let originalModelProvider: string | null = null;
+
+/** Active MLOps client — logs experiment metrics to W&B/MLFlow when campaign has mlops config */
+let mlopsClient: MLOpsClient | null = null;
 
 /** Progress-aware timeout supervision */
 let unitTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -266,6 +270,10 @@ export async function stopAuto(ctx?: ExtensionContext, pi?: ExtensionAPI): Promi
   if (basePath) {
     try { await rebuildState(basePath); } catch { /* non-fatal */ }
   }
+
+  // Finalize MLOps session — non-fatal, must not block shutdown
+  try { await mlopsClient?.finish(); } catch { /* non-fatal */ }
+  mlopsClient = null;
 
   resetMetrics();
   active = false;
@@ -554,6 +562,29 @@ export async function startAuto(
   // Self-heal: clear stale runtime records where artifacts already exist
   await selfHealRuntimeRecords(base, ctx);
 
+  // Initialize MLOps client if campaign has mlops config
+  try {
+    const sid = state.activeSlice?.id;
+    if (sid) {
+      const sliceDir = resolveSlicePath(base, mid, sid);
+      if (sliceDir) {
+        const campaign = parseCampaignConfig(sliceDir);
+        if (campaign?.mlops) {
+          mlopsClient = createMLOpsClient(campaign.mlops);
+          if (mlopsClient) {
+            await mlopsClient.init({
+              name: campaign.name,
+              researchQuestion: campaign.researchQuestion,
+              targetFiles: campaign.targetFiles,
+              evalCommand: campaign.evalConfig.command,
+            });
+            ctx.ui.notify(`MLOps: logging to ${campaign.mlops.platform} dashboard`, "info");
+          }
+        }
+      }
+    }
+  } catch { /* non-fatal — MLOps init must never block auto-mode start */ }
+
   // Dispatch the first unit
   await dispatchNextUnit(ctx, pi);
 }
@@ -600,6 +631,13 @@ export async function handleAgentEnd(
           `Experiment ${result.id}: ${verb} — ${result.decision.reason}${metricsSummary ? ` (${metricsSummary})` : ""}`,
           result.decision.decision === "keep" ? "info" : "warn",
         );
+
+        // Log experiment result to MLOps platform (non-fatal)
+        try {
+          if (mlopsClient) {
+            await mlopsClient.logExperiment(result, experimentNumber);
+          }
+        } catch { /* non-fatal — MLOps logging must never block experiments */ }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         ctx.ui.notify(`Experiment eval failed (non-fatal): ${msg}`, "error");
