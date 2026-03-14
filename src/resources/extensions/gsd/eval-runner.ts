@@ -17,10 +17,10 @@ import type {
   ExperimentResult,
   MetricDefinition,
   KeepDiscardDecision,
-} from './types.ts';
+} from './types.js';
 
-import { revertExperiment } from './worktree.ts';
-import { parseCampaignConfig } from './state.ts';
+import { revertExperiment } from './worktree.js';
+import { parseCampaignConfig } from './state.js';
 
 // ─── Subprocess Execution ───────────────────────────────────────────────────
 

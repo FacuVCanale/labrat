@@ -17,11 +17,11 @@
 
 import { sep } from "node:path";
 
-import { GitServiceImpl, writeIntegrationBranch } from "./git-service.ts";
-import { loadEffectiveGSDPreferences } from "./preferences.ts";
+import { GitServiceImpl, writeIntegrationBranch } from "./git-service.js";
+import { loadEffectiveGSDPreferences } from "./preferences.js";
 
 // Re-export MergeSliceResult from the canonical source (D014 — type-only re-export)
-export type { MergeSliceResult } from "./git-service.ts";
+export type { MergeSliceResult } from "./git-service.js";
 
 // ─── Lazy GitServiceImpl Cache ─────────────────────────────────────────────
 
@@ -173,7 +173,7 @@ export function switchToMain(basePath: string): void {
  */
 export function mergeSliceToMain(
   basePath: string, milestoneId: string, sliceId: string, sliceTitle: string,
-): import("./git-service.ts").MergeSliceResult {
+): import("./git-service.js").MergeSliceResult {
   return getService(basePath).mergeSliceToMain(milestoneId, sliceId, sliceTitle);
 }
 

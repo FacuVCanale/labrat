@@ -31,7 +31,7 @@ import { registerWorktreeCommand, getWorktreeOriginalCwd, getActiveWorktreeName 
 import { saveFile, formatContinue, loadFile, parseContinue, parseSummary } from "./files.js";
 import { loadPrompt } from "./prompt-loader.js";
 import { deriveState } from "./state.js";
-import { isAutoActive, isAutoPaused, handleAgentEnd, pauseAuto, getAutoDashboardData } from "./auto.js";
+import { isAutoActive, isAutoPaused, handleAgentEnd, pauseAuto, getAutoDashboardData, startAuto } from "./auto.js";
 import { saveActivityLog } from "./activity-log.js";
 import { checkAutoStartAfterDiscuss, getDiscussionMilestoneId } from "./guided-flow.js";
 import { GSDDashboardOverlay } from "./dashboard-overlay.js";
@@ -215,6 +215,16 @@ export default function (pi: ExtensionAPI) {
       }
     } catch {
       // Remote questions module not available — ignore
+    }
+
+    // Auto-start trigger — `labrat start` sets LABRAT_AUTO_START=1 to bootstrap
+    // campaign and immediately enter auto-mode after session initialization.
+    if (process.env.LABRAT_AUTO_START === "1") {
+      delete process.env.LABRAT_AUTO_START;
+      // Schedule auto-start — uses the same ctx cast pattern as fireStatusViaCommand
+      setTimeout(() => {
+        startAuto(ctx as ExtensionCommandContext, pi, process.cwd(), false).catch(() => {});
+      }, 100);
     }
   });
 

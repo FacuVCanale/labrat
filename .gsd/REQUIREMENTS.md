@@ -137,24 +137,24 @@ Guidelines:
 
 ### R012 — CLI Commands
 - Class: launchability
-- Status: active
+- Status: validated
 - Description: `start` (quick loop), `auto` (autonomous campaign), `stop` (graceful shutdown), `status` (progress), `report` (summary).
 - Why it matters: The CLI is the user's interface to Labrat.
 - Source: user
 - Primary owning slice: M001/S07
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Adapts GSD-2's existing CLI framework.
+- Validation: S07 — `labrat report` reads campaign data and prints formatted morning report, exits 0 on no-campaign. `labrat start` parses --target/--eval/--metric/--max-experiments/--budget-per-experiment flags, creates GSD scaffold, auto-starts interactive mode. `/gsd report` interactive command operational. Help text and graceful error handling verified.
+- Notes: Adapts GSD-2's existing CLI framework. `stop` and `status` inherited from GSD-2 interactive mode.
 
 ### R013 — Terminal Morning Report
 - Class: primary-user-loop
-- Status: active
+- Status: validated
 - Description: Terminal summary showing: experiments run/kept/reverted, best result, improvement trajectory, cost breakdown, time elapsed, top experiments ranked. Plus link to MLOps platform dashboard.
 - Why it matters: "Wake up, check results" is the core user journey endpoint.
 - Source: user
 - Primary owning slice: M001/S07
 - Supporting slices: M001/S06
-- Validation: unmapped
+- Validation: S07 — `generateMorningReport()` pure formatter with 7 conditional sections: campaign header, experiment summary, top experiments table, improvement trajectory, cost breakdown, duration, dashboard link. 46 contract tests. NO_COLOR respected via useColor parameter. Missing data sections silently skipped.
 - Notes: Quick glance in terminal, deep dive in W&B/MLFlow dashboard.
 
 ### R014 — Research Prompts
@@ -258,6 +258,18 @@ Guidelines:
 - Status: validated
 - Description: W&B and MLFlow connected via REST API in real-time while the loop runs. Labrat logs orchestration metadata.
 - Validation: S06 — MLFlowClient REST and WandbClient GraphQL/filestream with 105 contract tests. Circuit breaker, non-fatal hooks, auto.ts lifecycle wiring.
+
+### R012 — CLI Commands
+- Class: launchability
+- Status: validated
+- Description: `start` (quick loop), `auto` (autonomous campaign), `stop` (graceful shutdown), `status` (progress), `report` (summary).
+- Validation: S07 — `labrat report` and `labrat start` subcommands operational with flag parsing, help text, GSD scaffold creation, and graceful error handling. `/gsd report` interactive command. 46 contract tests for morning report.
+
+### R013 — Terminal Morning Report
+- Class: primary-user-loop
+- Status: validated
+- Description: Terminal summary showing experiments run/kept/reverted, best result, improvement trajectory, cost breakdown, time elapsed, top experiments ranked, dashboard link.
+- Validation: S07 — `generateMorningReport()` pure formatter with 7 conditional sections. 46 contract tests. NO_COLOR respected. Missing data sections silently skipped.
 
 ## Deferred
 
@@ -399,8 +411,8 @@ Guidelines:
 | R009 | operability | validated | M001/S05 | none | S05 |
 | R010 | continuity | validated | M001/S05 | M001/S03 | S05 |
 | R011 | integration | validated | M001/S06 | none | S06 |
-| R012 | launchability | active | M001/S07 | none | unmapped |
-| R013 | primary-user-loop | active | M001/S07 | M001/S06 | unmapped |
+| R012 | launchability | validated | M001/S07 | none | S07 |
+| R013 | primary-user-loop | validated | M001/S07 | M001/S06 | S07 |
 | R014 | core-capability | validated | M001/S04 | none | S04 |
 | R015 | constraint | validated | M001/S01 | none | S01 |
 | R016 | core-capability | deferred | M002 | none | unmapped |
@@ -417,7 +429,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 2
-- Mapped to slices: 2
-- Validated: 13
+- Active requirements: 0
+- Mapped to slices: 0
+- Validated: 15
 - Unmapped active requirements: 0

@@ -53,10 +53,10 @@ function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportT
 
 export function registerGSDCommand(pi: ExtensionAPI): void {
   pi.registerCommand("gsd", {
-    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|prefs|doctor|migrate|remote",
+    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|prefs|doctor|migrate|remote|report",
 
     getArgumentCompletions: (prefix: string) => {
-      const subcommands = ["next", "auto", "stop", "status", "queue", "discuss", "prefs", "doctor", "migrate", "remote"];
+      const subcommands = ["next", "auto", "stop", "status", "queue", "discuss", "prefs", "doctor", "migrate", "remote", "report"];
       const parts = prefix.trim().split(/\s+/);
 
       if (parts.length <= 1) {
@@ -161,6 +161,11 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
         return;
       }
 
+      if (trimmed === "report") {
+        await handleReport(ctx);
+        return;
+      }
+
       if (trimmed === "") {
         // Bare /gsd defaults to step mode
         await startAuto(ctx, pi, process.cwd(), false, { step: true });
@@ -168,7 +173,7 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
       }
 
       ctx.ui.notify(
-        `Unknown: /gsd ${trimmed}. Use /gsd, /gsd next, /gsd auto, /gsd stop, /gsd status, /gsd queue, /gsd discuss, /gsd prefs [global|project|status|wizard|setup], /gsd doctor [audit|fix|heal] [M###/S##], /gsd migrate <path>, or /gsd remote [slack|discord|status|disconnect].`,
+        `Unknown: /gsd ${trimmed}. Use /gsd, /gsd next, /gsd auto, /gsd stop, /gsd status, /gsd queue, /gsd discuss, /gsd prefs [global|project|status|wizard|setup], /gsd doctor [audit|fix|heal] [M###/S##], /gsd migrate <path>, /gsd remote [slack|discord|status|disconnect], or /gsd report.`,
         "warning",
       );
     },
@@ -295,6 +300,56 @@ async function handleDoctor(args: string, ctx: ExtensionCommandContext, pi: Exte
     dispatchDoctorHeal(pi, effectiveScope, reportText, structuredIssues);
     ctx.ui.notify(`Doctor heal dispatched ${actionable.length} issue(s) to the LLM.`, "info");
   }
+}
+
+// ─── Report ───────────────────────────────────────────────────────────────────
+
+async function handleReport(ctx: ExtensionCommandContext): Promise<void> {
+  const { findActiveCampaignDir, generateMorningReport } = await import("./morning-report.js");
+  const { parseCampaignConfig } = await import("./state.js");
+  const { readAllExperiments } = await import("./eval-runner.js");
+  const { createMLOpsClient } = await import("./mlops-integration.js");
+
+  const campaignDir = findActiveCampaignDir(process.cwd());
+  if (!campaignDir) {
+    ctx.ui.notify("No active campaign found.", "info");
+    return;
+  }
+
+  const campaign = parseCampaignConfig(campaignDir);
+  if (!campaign) {
+    ctx.ui.notify("No active campaign found.", "info");
+    return;
+  }
+
+  const experiments = readAllExperiments(campaignDir);
+
+  // Read metrics ledger from .gsd/metrics.json
+  let ledgerUnits: import("./metrics.js").UnitMetrics[] | null = null;
+  const metricsPath = join(process.cwd(), ".gsd", "metrics.json");
+  if (existsSync(metricsPath)) {
+    try {
+      const raw = readFileSync(metricsPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.units)) {
+        ledgerUnits = parsed.units;
+      }
+    } catch {
+      // Non-fatal — report without cost data
+    }
+  }
+
+  const dashboardUrl = createMLOpsClient(campaign.mlops)?.getDashboardUrl() ?? null;
+
+  const report = generateMorningReport({
+    experiments,
+    campaign,
+    ledgerUnits,
+    dashboardUrl,
+    useColor: false, // No ANSI in TUI notify
+  });
+
+  ctx.ui.notify(report, "info");
 }
 
 // ─── Preferences Wizard ───────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ import {
   runPrintMode,
   runRpcMode,
 } from '@gsd/pi-coding-agent'
-import { existsSync, readdirSync, renameSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, renameSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { agentDir, sessionsDir, authFilePath } from './app-paths.js'
 import { initResources, buildResourceLoader } from './resource-loader.js'
@@ -32,10 +32,17 @@ interface CliFlags {
   appendSystemPrompt?: string
   tools?: string[]
   messages: string[]
+  // Research campaign flags (for `start` subcommand)
+  targets: string[]
+  eval?: string
+  metrics: string[]
+  maxExperiments: number
+  budgetPerExperiment: number
+  researchQuestion?: string
 }
 
 function parseCliArgs(argv: string[]): CliFlags {
-  const flags: CliFlags = { extensions: [], messages: [] }
+  const flags: CliFlags = { extensions: [], messages: [], targets: [], metrics: [], maxExperiments: 20, budgetPerExperiment: 1.0 }
   const args = argv.slice(2) // skip node + script
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
@@ -56,10 +63,27 @@ function parseCliArgs(argv: string[]): CliFlags {
       flags.appendSystemPrompt = args[++i]
     } else if (arg === '--tools' && i + 1 < args.length) {
       flags.tools = args[++i].split(',')
+    } else if (arg === '--target' && i + 1 < args.length) {
+      flags.targets.push(args[++i])
+    } else if (arg === '--eval' && i + 1 < args.length) {
+      flags.eval = args[++i]
+    } else if (arg === '--metric' && i + 1 < args.length) {
+      flags.metrics.push(args[++i])
+    } else if (arg === '--max-experiments' && i + 1 < args.length) {
+      flags.maxExperiments = parseInt(args[++i], 10) || 20
+    } else if (arg === '--budget-per-experiment' && i + 1 < args.length) {
+      flags.budgetPerExperiment = parseFloat(args[++i]) || 1.0
+    } else if (arg === '--research-question' && i + 1 < args.length) {
+      flags.researchQuestion = args[++i]
     } else if (arg === '--version' || arg === '-v') {
       process.stdout.write((process.env.LABRAT_VERSION || '0.0.0') + '\n')
       process.exit(0)
     } else if (arg === '--help' || arg === '-h') {
+      // Defer help to subcommand handler if `start` is the first positional arg
+      if (flags.messages[0] === 'start' || args.some((a, idx) => a === 'start' && idx < i)) {
+        // Will be handled by the start subcommand
+        flags.messages.push('--help')
+      } else {
       process.stdout.write(`Labrat v${process.env.LABRAT_VERSION || '0.0.0'}\n\n`)
       process.stdout.write('Usage: labrat [options] [message...]\n\n')
       process.stdout.write('Options:\n')
@@ -75,7 +99,17 @@ function parseCliArgs(argv: string[]): CliFlags {
       process.stdout.write('\nSubcommands:\n')
       process.stdout.write('  config                   Re-run the setup wizard\n')
       process.stdout.write('  update                   Update Labrat to the latest version\n')
+      process.stdout.write('  report                   Print campaign morning report to stdout\n')
+      process.stdout.write('  start                    Bootstrap a research campaign and launch interactive mode\n')
+      process.stdout.write('\nStart flags:\n')
+      process.stdout.write('  --target <path>          Target file(s) to optimize (required, repeatable)\n')
+      process.stdout.write('  --eval <command>         Evaluation command (required)\n')
+      process.stdout.write('  --metric <name:dir:wt>   Metric definition name:min|max:weight (required, repeatable)\n')
+      process.stdout.write('  --max-experiments <N>    Maximum experiments (default: 20)\n')
+      process.stdout.write('  --budget-per-experiment <USD>  Budget per experiment in USD (default: 1.0)\n')
+      process.stdout.write('  --research-question <text>     Research question (optional)\n')
       process.exit(0)
+      }
     } else if (!arg.startsWith('--') && !arg.startsWith('-')) {
       flags.messages.push(arg)
     }
@@ -98,6 +132,173 @@ if (cliFlags.messages[0] === 'update') {
   const { runUpdate } = await import('./update-cmd.js')
   await runUpdate()
   process.exit(0)
+}
+
+// `labrat report` — print morning report to stdout and exit
+if (cliFlags.messages[0] === 'report') {
+  const { findActiveCampaignDir, generateMorningReport } = await import('./resources/extensions/gsd/morning-report.js')
+  const { parseCampaignConfig } = await import('./resources/extensions/gsd/state.js')
+  const { readAllExperiments } = await import('./resources/extensions/gsd/eval-runner.js')
+  const { createMLOpsClient } = await import('./resources/extensions/gsd/mlops-integration.js')
+
+  const campaignDir = findActiveCampaignDir(process.cwd())
+  if (!campaignDir) {
+    process.stdout.write('No active campaign found.\n')
+    process.exit(0)
+  }
+
+  const campaign = parseCampaignConfig(campaignDir)
+  if (!campaign) {
+    process.stdout.write('No active campaign found.\n')
+    process.exit(0)
+  }
+
+  const experiments = readAllExperiments(campaignDir)
+
+  // Read metrics ledger from .gsd/metrics.json
+  let ledgerUnits: import('./resources/extensions/gsd/metrics.js').UnitMetrics[] | null = null
+  const metricsPath = join(process.cwd(), '.gsd', 'metrics.json')
+  if (existsSync(metricsPath)) {
+    try {
+      const raw = readFileSync(metricsPath, 'utf-8')
+      const parsed = JSON.parse(raw)
+      if (parsed && Array.isArray(parsed.units)) {
+        ledgerUnits = parsed.units
+      }
+    } catch {
+      // Non-fatal — report without cost data
+    }
+  }
+
+  const dashboardUrl = createMLOpsClient(campaign.mlops)?.getDashboardUrl() ?? null
+  const useColor = !!(process.stdout.isTTY && !process.env.NO_COLOR)
+
+  const report = generateMorningReport({
+    experiments,
+    campaign,
+    ledgerUnits,
+    dashboardUrl,
+    useColor,
+  })
+
+  process.stdout.write(report + '\n')
+  process.exit(0)
+}
+
+// `labrat start` — bootstrap research campaign and fall through to interactive mode
+if (cliFlags.messages[0] === 'start') {
+  // Show start-specific help
+  if (cliFlags.messages.includes('--help') || cliFlags.messages.includes('-h') ||
+      process.argv.includes('--help') || process.argv.includes('-h')) {
+    process.stdout.write(`Labrat v${process.env.LABRAT_VERSION || '0.0.0'} — start\n\n`)
+    process.stdout.write('Usage: labrat start --target <path> --eval <command> --metric <name:dir:weight> [options]\n\n')
+    process.stdout.write('Required flags:\n')
+    process.stdout.write('  --target <path>          Target file(s) to optimize (repeatable)\n')
+    process.stdout.write('  --eval <command>          Evaluation command\n')
+    process.stdout.write('  --metric <name:dir:wt>    Metric definition name:min|max:weight (repeatable)\n')
+    process.stdout.write('\nOptional flags:\n')
+    process.stdout.write('  --max-experiments <N>     Maximum experiments (default: 20)\n')
+    process.stdout.write('  --budget-per-experiment <USD>  Budget per experiment in USD (default: 1.0)\n')
+    process.stdout.write('  --research-question <text>     Research question\n')
+    process.exit(0)
+  }
+
+  // Validate required flags
+  const missingFlags: string[] = []
+  if (cliFlags.targets.length === 0) missingFlags.push('--target')
+  if (!cliFlags.eval) missingFlags.push('--eval')
+  if (cliFlags.metrics.length === 0) missingFlags.push('--metric')
+
+  if (missingFlags.length > 0) {
+    process.stderr.write(`[labrat] Error: Missing required flag(s): ${missingFlags.join(', ')}\n`)
+    process.stderr.write('[labrat] Usage: labrat start --target <path> --eval <command> --metric <name:dir:weight>\n')
+    process.stderr.write('[labrat] Run "labrat start --help" for details.\n')
+    process.exit(1)
+  }
+
+  // Parse metric definitions from "name:direction:weight" format
+  const metricDefs: Array<{ name: string; direction: 'min' | 'max'; weight: number }> = []
+  for (const m of cliFlags.metrics) {
+    const parts = m.split(':')
+    if (parts.length !== 3) {
+      process.stderr.write(`[labrat] Error: Invalid metric format "${m}". Expected name:min|max:weight\n`)
+      process.exit(1)
+    }
+    const [name, dir, wt] = parts
+    if (dir !== 'min' && dir !== 'max') {
+      process.stderr.write(`[labrat] Error: Invalid metric direction "${dir}" in "${m}". Must be "min" or "max".\n`)
+      process.exit(1)
+    }
+    const weight = parseFloat(wt)
+    if (isNaN(weight) || weight <= 0) {
+      process.stderr.write(`[labrat] Error: Invalid metric weight "${wt}" in "${m}". Must be a positive number.\n`)
+      process.exit(1)
+    }
+    metricDefs.push({ name, direction: dir, weight })
+  }
+
+  // Build CAMPAIGN.json
+  const campaignConfig = {
+    name: cliFlags.researchQuestion
+      ? cliFlags.researchQuestion.slice(0, 60)
+      : `Research campaign — ${new Date().toISOString().slice(0, 10)}`,
+    researchQuestion: cliFlags.researchQuestion,
+    targetFiles: cliFlags.targets,
+    evalConfig: {
+      command: cliFlags.eval!,
+      timeout: 120,
+      metrics: metricDefs,
+      runs: 1,
+    },
+    maxExperiments: cliFlags.maxExperiments,
+    budgetPerExperiment: cliFlags.budgetPerExperiment,
+  }
+
+  // Create GSD scaffold (idempotent — only write files that don't exist)
+  const gsdDir = join(process.cwd(), '.gsd')
+  const milestoneDir = join(gsdDir, 'milestones', 'M001')
+  const sliceDir = join(milestoneDir, 'slices', 'S01')
+
+  mkdirSync(sliceDir, { recursive: true })
+
+  const roadmapPath = join(milestoneDir, 'M001-ROADMAP.md')
+  if (!existsSync(roadmapPath)) {
+    writeFileSync(roadmapPath, [
+      '# M001 Roadmap',
+      '',
+      '## Slices',
+      '',
+      '- [ ] S01 — Research campaign',
+      '',
+    ].join('\n'))
+  }
+
+  const planPath = join(sliceDir, 'S01-PLAN.md')
+  if (!existsSync(planPath)) {
+    writeFileSync(planPath, [
+      '---',
+      'status: in_progress',
+      '---',
+      '',
+      '# S01 — Research Campaign',
+      '',
+      `**Goal:** ${cliFlags.researchQuestion || 'Optimize target files via automated experimentation.'}`,
+      '',
+      '## Tasks',
+      '',
+      '- [ ] T01 — Run experiments',
+      '',
+    ].join('\n'))
+  }
+
+  const campaignPath = join(sliceDir, 'CAMPAIGN.json')
+  if (!existsSync(campaignPath)) {
+    writeFileSync(campaignPath, JSON.stringify(campaignConfig, null, 2) + '\n')
+  }
+
+  // Set auto-start env var — session_start hook will pick this up
+  process.env.LABRAT_AUTO_START = '1'
+  // Fall through to interactive mode (no process.exit)
 }
 
 // Pi's tool bootstrap can mis-detect already-installed fd/rg on some systems

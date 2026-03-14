@@ -70,7 +70,7 @@ This milestone is complete only when all are true:
 - [x] **S06: Live MLOps Integration** `risk:medium` `depends:[S03]`
   > After this: experiment metrics and orchestration metadata appear in W&B/MLFlow dashboard in real-time while the loop runs.
 
-- [ ] **S07: CLI, Morning Report & Smoke Test** `risk:low` `depends:[S04,S05,S06]`
+- [x] **S07: CLI, Morning Report & Smoke Test** `risk:low` `depends:[S04,S05,S06]`
   > After this: `labrat start` runs the Karpathy train.py scenario end-to-end. `labrat report` shows terminal summary with top experiments, trajectory, costs, and platform dashboard link.
 
 ## Boundary Map
