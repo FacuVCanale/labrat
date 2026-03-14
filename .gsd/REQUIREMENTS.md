@@ -14,16 +14,7 @@ Guidelines:
 
 ## Active
 
-### R026 — GSD-2 Upstream Feature Sync
-- Class: operability
-- Status: active
-- Description: Mechanism for analyzing GSD-2 upstream changes and selectively integrating relevant infrastructure improvements into Labrat. Since both share the same core infrastructure DNA, an LLM can diff upstream changes against Labrat's codebase and port relevant features.
-- Why it matters: GSD-2 continues to evolve. Labrat should benefit from infrastructure fixes and improvements without manual porting effort.
-- Source: user
-- Primary owning slice: M003/S01
-- Supporting slices: M003/S02, M003/S03
-- Validation: S01 — upstream-sync.ts fetches, classifies, and reports 532 real upstream commits (467 infra, 14 dev, 51 mixed). Sync state persists across invocations. `labrat sync` CLI operational. 137 contract+integration tests. S02 — selective apply pipeline: `applyUpstreamCommit` cherry-picks with conflict detection, `verifyAfterApply` runs build+test, `getConflictContext` extracts structured conflict data. `--apply <hash>` CLI flag operational. 50 new contract test assertions (113 total). Remaining: LLM adaptation (S03).
-- Notes: Upstream remote already tracked. Cherry-pick selective, not merge. An LLM analyzing code differences can identify and adapt new features.
+(none)
 
 ### R001 — GSD-2 Base & Upstream Tracking
 - Class: constraint
@@ -282,6 +273,12 @@ Guidelines:
 - Description: Terminal summary showing experiments run/kept/reverted, best result, improvement trajectory, cost breakdown, time elapsed, top experiments ranked, dashboard link.
 - Validation: S07 — `generateMorningReport()` pure formatter with 7 conditional sections. 46 contract tests. NO_COLOR respected. Missing data sections silently skipped.
 
+### R026 — GSD-2 Upstream Feature Sync
+- Class: operability
+- Status: validated
+- Description: Mechanism for analyzing GSD-2 upstream changes and selectively integrating relevant infrastructure improvements into Labrat.
+- Validation: S01 — fetches/categorizes 532 upstream commits with persistent state. S02 — selective apply with conflict detection and build verification. S03 — LLM adaptation pipeline with prompt construction, output parsing, file application with verify/revert. 167 total contract tests.
+
 ### R017 — Simplicity-Aware Keep/Discard
 - Class: differentiator
 - Status: validated
@@ -402,11 +399,11 @@ Guidelines:
 | R023 | anti-feature | out-of-scope | none | none | n/a |
 | R024 | differentiator | out-of-scope | none | none | n/a |
 | R025 | operability | out-of-scope | none | none | n/a |
-| R026 | operability | active | M003/S01 | M003/S02, M003/S03 | unmapped |
+| R026 | operability | validated | M003/S01 | M003/S02, M003/S03 | S01+S02+S03 |
 
 ## Coverage Summary
 
-- Active requirements: 1
-- Mapped to slices: 1
-- Validated: 20
+- Active requirements: 0
+- Mapped to slices: 0
+- Validated: 21
 - Unmapped active requirements: 0

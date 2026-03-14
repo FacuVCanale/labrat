@@ -18,10 +18,10 @@ import { join, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
 
 import { runGit } from './git-service.js';
-import type { CommitCategory, UpstreamCommitInfo, SyncState, ApplyResult, VerifyResult, ConflictContext } from './types.js';
+import type { CommitCategory, UpstreamCommitInfo, SyncState, ApplyResult, VerifyResult, ConflictContext, AdaptedFile } from './types.js';
 
 // Re-export types for consumer convenience
-export type { CommitCategory, UpstreamCommitInfo, SyncState, ApplyResult, VerifyResult, ConflictContext };
+export type { CommitCategory, UpstreamCommitInfo, SyncState, ApplyResult, VerifyResult, ConflictContext, AdaptedFile };
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -775,6 +775,259 @@ export function applyUpstreamCommit(basePath: string, hash: string): ApplyResult
       success: false,
       conflicted: false,
       error: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// ─── S03: LLM-Assisted Conflict Adaptation ──────────────────────────────────
+
+/**
+ * Build a complete adaptation prompt from conflict context.
+ *
+ * Pure function — no I/O, no side effects (D055).
+ * Assembles sections:
+ *   (a) upstream commit intent (hash, subject)
+ *   (b) per-file conflict detail (merge markers, Labrat version, upstream patch)
+ *   (c) optional Labrat project summary
+ *   (d) output format specification
+ */
+export function buildAdaptationPrompt(context: ConflictContext, labratSummary?: string): string {
+  const sections: string[] = [];
+
+  // (a) Upstream commit intent
+  sections.push('## Upstream Commit');
+  sections.push(`Hash: ${context.hash}`);
+  sections.push(`Subject: ${context.subject}`);
+  sections.push('');
+
+  // (b) Per-file conflict details
+  sections.push('## Conflicting Files');
+  sections.push('');
+  for (const file of context.conflictingFiles) {
+    sections.push(`### ${file.path}`);
+    sections.push('');
+    sections.push('#### File with Merge Markers');
+    sections.push('```');
+    sections.push(file.withMarkers);
+    sections.push('```');
+    sections.push('');
+    sections.push('#### Labrat\'s Version (pre-conflict)');
+    sections.push('```');
+    sections.push(file.labratVersion);
+    sections.push('```');
+    sections.push('');
+    sections.push('#### Upstream Patch');
+    sections.push('```diff');
+    sections.push(file.upstreamPatch);
+    sections.push('```');
+    sections.push('');
+  }
+
+  // (c) Optional Labrat project summary
+  if (labratSummary) {
+    sections.push('## Labrat Project Summary');
+    sections.push(labratSummary);
+    sections.push('');
+  }
+
+  // (d) Output format specification
+  sections.push('## Output Format');
+  sections.push('');
+  sections.push('Produce the adapted version of each conflicting file. Preserve both Labrat\'s additions and the upstream fix intent.');
+  sections.push('Output each file as a fenced code block with a `// FILE: <path>` header as the first line inside the block.');
+  sections.push('');
+  sections.push('Example:');
+  sections.push('```');
+  sections.push('// FILE: src/example.ts');
+  sections.push('// ... adapted file content ...');
+  sections.push('```');
+
+  return sections.join('\n');
+}
+
+/**
+ * Parse adapted file contents from LLM output.
+ *
+ * Scans for fenced code blocks (``` delimiters), looks for `// FILE: <path>`
+ * as the first non-empty line inside each block.
+ *
+ * Handles deviations:
+ * - Extra prose between blocks
+ * - Varied fence styles (```ts, ```typescript, etc.)
+ * - Missing trailing fence (treat as extending to end)
+ * - `## FILE:` or `**FILE:**` header variants
+ *
+ * Returns empty array if no parseable blocks found.
+ */
+export function parseAdaptedFiles(llmOutput: string): AdaptedFile[] {
+  const results: AdaptedFile[] = [];
+  const lines = llmOutput.split('\n');
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i]!;
+
+    // Look for fence opening: ``` optionally followed by language tag
+    if (/^```\w*\s*$/.test(line.trim())) {
+      i++;
+
+      // Collect lines until closing fence or end of input
+      const blockLines: string[] = [];
+      let foundClosingFence = false;
+      while (i < lines.length) {
+        const bLine = lines[i]!;
+        if (/^```\s*$/.test(bLine.trim())) {
+          foundClosingFence = true;
+          i++;
+          break;
+        }
+        blockLines.push(bLine);
+        i++;
+      }
+
+      // Extract file path from first non-empty line
+      const firstNonEmpty = blockLines.find(l => l.trim() !== '');
+      if (firstNonEmpty) {
+        const path = extractFilePath(firstNonEmpty);
+        if (path) {
+          // Content is everything after the header line
+          const headerIdx = blockLines.indexOf(firstNonEmpty);
+          const contentLines = blockLines.slice(headerIdx + 1);
+          results.push({ path, content: contentLines.join('\n') });
+        }
+      }
+    } else {
+      i++;
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Extract file path from a header line, supporting variants:
+ * - `// FILE: <path>`
+ * - `## FILE: <path>`
+ * - `**FILE:** <path>`
+ */
+function extractFilePath(line: string): string | null {
+  const trimmed = line.trim();
+
+  // // FILE: path
+  let match = trimmed.match(/^\/\/\s*FILE:\s*(.+)$/);
+  if (match) return match[1]!.trim();
+
+  // ## FILE: path
+  match = trimmed.match(/^##\s*FILE:\s*(.+)$/);
+  if (match) return match[1]!.trim();
+
+  // **FILE:** path
+  match = trimmed.match(/^\*\*FILE:\*\*\s*(.+)$/);
+  if (match) return match[1]!.trim();
+
+  return null;
+}
+
+/**
+ * Apply adapted files to the working repo.
+ *
+ * Flow:
+ * 1. Validate adaptedFiles non-empty
+ * 2. Write each file to disk
+ * 3. `git add` each file
+ * 4. `git commit -F -` with `upstream-adapt(<short-hash>): <subject>`
+ * 5. `verifyAfterApply()`
+ * 6. If verify fails: revert commit and return error
+ * 7. If verify passes: update sync state and return success
+ *
+ * Every exit path leaves the repo clean (no staged changes, no partial commits).
+ * Uses existing `runGit()` for all git operations (D055).
+ */
+export function applyAdaptedFiles(
+  basePath: string,
+  hash: string,
+  subject: string,
+  adaptedFiles: AdaptedFile[],
+): ApplyResult {
+  if (adaptedFiles.length === 0) {
+    return {
+      success: false,
+      conflicted: false,
+      error: 'No adapted files provided',
+    };
+  }
+
+  const shortHash = hash.slice(0, 8);
+
+  try {
+    // Write each adapted file to disk
+    for (const file of adaptedFiles) {
+      const filePath = join(basePath, file.path);
+      const dir = dirname(filePath);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      writeFileSync(filePath, file.content, 'utf-8');
+    }
+
+    // Stage all adapted files
+    for (const file of adaptedFiles) {
+      runGit(basePath, ['add', file.path]);
+    }
+
+    // Commit with upstream-adapt message
+    const commitMsg = `upstream-adapt(${shortHash}): ${subject}`;
+    try {
+      runGit(basePath, ['commit', '-F', '-'], { input: commitMsg });
+    } catch (commitErr) {
+      // Commit failed — reset staged changes to leave repo clean
+      runGit(basePath, ['reset', '--hard', 'HEAD'], { allowFailure: true });
+      return {
+        success: false,
+        conflicted: false,
+        error: `Failed to commit adapted files: ${commitErr instanceof Error ? commitErr.message : String(commitErr)}`,
+      };
+    }
+
+    // Verify after apply
+    const verifyResult = verifyAfterApply(basePath);
+
+    if (!verifyResult.buildPassed || !verifyResult.testsPassed) {
+      // Verify failed: revert the committed change
+      try {
+        runGit(basePath, ['revert', '--no-commit', 'HEAD']);
+        runGit(basePath, ['commit', '-F', '-'], { input: `revert upstream-adapt(${shortHash}): verify failed` });
+      } catch {
+        // If revert fails, force reset to before the adapt commit
+        runGit(basePath, ['reset', '--hard', 'HEAD~1'], { allowFailure: true });
+      }
+
+      return {
+        success: false,
+        conflicted: false,
+        verifyResult,
+        error: 'Verification failed after adaptation — change has been reverted',
+      };
+    }
+
+    // Success: update sync state
+    const state = readSyncState(basePath);
+    state.appliedCommits.push(hash);
+    writeSyncState(basePath, state);
+
+    return {
+      success: true,
+      conflicted: false,
+      verifyResult,
+    };
+  } catch (err) {
+    // Catch-all: ensure repo is clean
+    runGit(basePath, ['reset', '--hard', 'HEAD'], { allowFailure: true });
+
+    return {
+      success: false,
+      conflicted: false,
+      error: `Unexpected error during adaptation: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }

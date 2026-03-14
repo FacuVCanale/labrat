@@ -43,6 +43,7 @@ interface CliFlags {
   noFetch?: boolean
   includeEvaluated?: boolean
   applyHash?: string
+  adapt?: boolean
 }
 
 function parseCliArgs(argv: string[]): CliFlags {
@@ -85,6 +86,8 @@ function parseCliArgs(argv: string[]): CliFlags {
       flags.includeEvaluated = true
     } else if (arg === '--apply' && i + 1 < args.length) {
       flags.applyHash = args[++i]
+    } else if (arg === '--adapt') {
+      flags.adapt = true
     } else if (arg === '--version' || arg === '-v') {
       process.stdout.write((process.env.LABRAT_VERSION || '0.0.0') + '\n')
       process.exit(0)
@@ -209,6 +212,7 @@ if (cliFlags.messages[0] === 'sync') {
     process.stdout.write('  --no-fetch               Skip `git fetch upstream` (use cached refs)\n')
     process.stdout.write('  --include-evaluated       Re-show already-evaluated commits\n')
     process.stdout.write('  --apply <hash>            Cherry-pick a specific upstream commit and verify build+tests\n')
+    process.stdout.write('  --adapt                   On conflict, print adaptation prompt to stdout (use with --apply)\n')
     process.stdout.write('  --help, -h               Print this help and exit\n')
     process.exit(0)
   }
@@ -226,12 +230,19 @@ if (cliFlags.messages[0] === 'sync') {
         process.stdout.write(`  Tests: ${result.verifyResult.testsPassed ? 'passed' : 'FAILED'}\n`)
       }
     } else if (result.conflicted && result.conflictContext) {
-      process.stderr.write(`✗ Conflict applying ${cliFlags.applyHash}: ${result.conflictContext.subject}\n`)
-      process.stderr.write(`  Conflicting files:\n`)
-      for (const f of result.conflictContext.conflictingFiles) {
-        process.stderr.write(`    - ${f.path}\n`)
+      if (cliFlags.adapt) {
+        // --adapt: print adaptation prompt to stdout for piping to an LLM
+        const { buildAdaptationPrompt } = await import('./resources/extensions/gsd/upstream-sync.js')
+        const prompt = buildAdaptationPrompt(result.conflictContext)
+        process.stdout.write(prompt + '\n')
+      } else {
+        process.stderr.write(`✗ Conflict applying ${cliFlags.applyHash}: ${result.conflictContext.subject}\n`)
+        process.stderr.write(`  Conflicting files:\n`)
+        for (const f of result.conflictContext.conflictingFiles) {
+          process.stderr.write(`    - ${f.path}\n`)
+        }
+        process.stderr.write(`  Cherry-pick aborted — repo is clean.\n`)
       }
-      process.stderr.write(`  Cherry-pick aborted — repo is clean.\n`)
     } else {
       process.stderr.write(`✗ Failed to apply ${cliFlags.applyHash}: ${result.error || 'unknown error'}\n`)
       if (result.verifyResult) {

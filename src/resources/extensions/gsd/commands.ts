@@ -99,6 +99,13 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
         return [];
       }
 
+      if (parts[0] === "sync" && parts.length <= 2) {
+        const flagPrefix = parts[1] ?? "";
+        return ["--apply", "--adapt", "--no-fetch", "--include-evaluated"]
+          .filter((f) => f.startsWith(flagPrefix))
+          .map((f) => ({ value: `sync ${f}`, label: f }));
+      }
+
       return [];
     },
 
@@ -172,7 +179,7 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
       }
 
       if (trimmed === "sync" || trimmed.startsWith("sync ")) {
-        await handleSync(ctx, trimmed);
+        await handleSync(ctx, pi, trimmed);
         return;
       }
 
@@ -364,11 +371,12 @@ async function handleReport(ctx: ExtensionCommandContext): Promise<void> {
 
 // ─── Sync ───────────────────────────────────────────────────────────────────
 
-async function handleSync(ctx: ExtensionCommandContext, rawCommand = "sync"): Promise<void> {
-  // Parse --apply <hash> from the command string
+async function handleSync(ctx: ExtensionCommandContext, pi: ExtensionAPI, rawCommand = "sync"): Promise<void> {
+  // Parse --apply <hash> and --adapt from the command string
   const argParts = rawCommand.replace(/^sync\s*/, "").trim().split(/\s+/).filter(Boolean);
   const applyIdx = argParts.indexOf("--apply");
   const applyHash = applyIdx !== -1 && applyIdx + 1 < argParts.length ? argParts[applyIdx + 1] : undefined;
+  const hasAdapt = argParts.includes("--adapt");
 
   if (applyHash) {
     const { applyUpstreamCommit } = await import("./upstream-sync.js");
@@ -383,11 +391,81 @@ async function handleSync(ctx: ExtensionCommandContext, rawCommand = "sync"): Pr
       }
       ctx.ui.notify(msg, "info");
     } else if (result.conflicted && result.conflictContext) {
-      const files = result.conflictContext.conflictingFiles.map(f => `  - ${f.path}`).join("\n");
-      ctx.ui.notify(
-        `✗ Conflict applying ${applyHash}: ${result.conflictContext.subject}\nConflicting files:\n${files}\nCherry-pick aborted — repo is clean.`,
-        "warning",
-      );
+      if (hasAdapt) {
+        // --adapt: dispatch adaptation workflow to the LLM
+        const { buildAdaptationPrompt } = await import("./upstream-sync.js");
+        const prompt = buildAdaptationPrompt(result.conflictContext);
+
+        // Build the conflict details and output format for the template
+        const conflictDetails = result.conflictContext.conflictingFiles.map(f => {
+          return [
+            `### ${f.path}`,
+            "",
+            "#### File with Merge Markers",
+            "```",
+            f.withMarkers,
+            "```",
+            "",
+            "#### Labrat's Version (pre-conflict)",
+            "```",
+            f.labratVersion,
+            "```",
+            "",
+            "#### Upstream Patch",
+            "```diff",
+            f.upstreamPatch,
+            "```",
+          ].join("\n");
+        }).join("\n\n");
+
+        const outputFormat = [
+          "Produce the adapted version of each conflicting file as a fenced code block.",
+          "The first line inside each block must be a `// FILE: <path>` header.",
+          "",
+          "Example:",
+          "```",
+          "// FILE: src/example.ts",
+          "// ... adapted file content ...",
+          "```",
+          "",
+          "After producing the adapted files, call `applyAdaptedFiles()` from `upstream-sync.ts` with the base path, commit hash, subject, and array of `{ path, content }` objects.",
+        ].join("\n");
+
+        const adaptPrompt = loadPrompt("adapt-upstream", {
+          upstreamHash: result.conflictContext.hash,
+          upstreamSubject: result.conflictContext.subject,
+          conflictDetails,
+          outputFormat,
+        });
+
+        const taskNote = [
+          adaptPrompt,
+          "",
+          "## Workflow",
+          "",
+          "1. Read the conflict details above carefully.",
+          "2. Produce adapted file contents that preserve Labrat additions while applying the upstream fix intent.",
+          "3. Write each adapted file to disk.",
+          `4. Import \`applyAdaptedFiles\` from \`upstream-sync.ts\` and call it with basePath="${process.cwd()}", hash="${result.conflictContext.hash}", subject="${result.conflictContext.subject}", and the adapted files array.`,
+          "5. If applyAdaptedFiles returns success=false, report the error.",
+        ].join("\n");
+
+        pi.sendMessage(
+          { customType: "gsd-adapt", content: taskNote, display: false },
+          { triggerTurn: true },
+        );
+
+        ctx.ui.notify(
+          `Adaptation workflow dispatched for conflict on ${applyHash}: ${result.conflictContext.subject}`,
+          "info",
+        );
+      } else {
+        const files = result.conflictContext.conflictingFiles.map(f => `  - ${f.path}`).join("\n");
+        ctx.ui.notify(
+          `✗ Conflict applying ${applyHash}: ${result.conflictContext.subject}\nConflicting files:\n${files}\nCherry-pick aborted — repo is clean.`,
+          "warning",
+        );
+      }
     } else {
       ctx.ui.notify(`✗ Failed to apply ${applyHash}: ${result.error || "unknown error"}`, "warning");
     }

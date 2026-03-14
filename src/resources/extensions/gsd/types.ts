@@ -354,3 +354,8 @@ export interface ApplyResult {
   verifyResult?: VerifyResult;
   error?: string;
 }
+
+export interface AdaptedFile {
+  path: string;
+  content: string;
+}

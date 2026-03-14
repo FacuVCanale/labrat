@@ -28,9 +28,12 @@ import {
   applyUpstreamCommit,
   verifyAfterApply,
   getConflictContext,
+  buildAdaptationPrompt,
+  parseAdaptedFiles,
+  applyAdaptedFiles,
 } from '../upstream-sync.ts';
 
-import type { UpstreamCommitInfo, SyncState, ApplyResult } from '../types.ts';
+import type { UpstreamCommitInfo, SyncState, ApplyResult, ConflictContext, AdaptedFile } from '../types.ts';
 
 let passed = 0;
 let failed = 0;
@@ -874,6 +877,271 @@ async function main(): Promise<void> {
     } finally {
       rmSync(repo, { recursive: true, force: true });
       rmSync(upstream, { recursive: true, force: true });
+    }
+  }
+
+  // ═══ S03: Adaptation Core — Prompt Builder, Parser, File Applicator ═══════
+
+  console.log('\n=== S03: buildAdaptationPrompt ===');
+
+  // Prompt contains upstream hash and subject
+  {
+    const ctx: ConflictContext = {
+      hash: 'abc123def456',
+      subject: 'fix: update retry logic',
+      conflictingFiles: [{
+        path: 'src/retry.ts',
+        withMarkers: '<<<<<<< HEAD\nold\n=======\nnew\n>>>>>>> abc123',
+        labratVersion: 'const retry = true;',
+        upstreamPatch: '--- a/src/retry.ts\n+++ b/src/retry.ts\n@@ -1 +1 @@\n-old\n+new',
+      }],
+    };
+    const prompt = buildAdaptationPrompt(ctx);
+    assert(prompt.includes('abc123def456'), 'prompt: contains full hash');
+    assert(prompt.includes('fix: update retry logic'), 'prompt: contains subject');
+    assert(prompt.includes('src/retry.ts'), 'prompt: contains file path');
+    assert(prompt.includes('<<<<<<<'), 'prompt: contains merge markers');
+    assert(prompt.includes('const retry = true'), 'prompt: contains Labrat version');
+    assert(prompt.includes('--- a/src/retry.ts'), 'prompt: contains upstream patch');
+    assert(prompt.includes('// FILE:'), 'prompt: contains format instructions');
+    assert(prompt.includes('Output Format'), 'prompt: has output format section');
+  }
+
+  // Prompt handles multiple conflicting files
+  {
+    const ctx: ConflictContext = {
+      hash: 'multi123',
+      subject: 'feat: multi-file change',
+      conflictingFiles: [
+        { path: 'file-a.ts', withMarkers: 'markers-a', labratVersion: 'labrat-a', upstreamPatch: 'patch-a' },
+        { path: 'file-b.ts', withMarkers: 'markers-b', labratVersion: 'labrat-b', upstreamPatch: 'patch-b' },
+      ],
+    };
+    const prompt = buildAdaptationPrompt(ctx);
+    assert(prompt.includes('file-a.ts'), 'prompt multi: contains file-a path');
+    assert(prompt.includes('file-b.ts'), 'prompt multi: contains file-b path');
+    assert(prompt.includes('markers-a'), 'prompt multi: contains file-a markers');
+    assert(prompt.includes('markers-b'), 'prompt multi: contains file-b markers');
+  }
+
+  // Prompt includes optional summary when provided
+  {
+    const ctx: ConflictContext = {
+      hash: 'sum123',
+      subject: 'test',
+      conflictingFiles: [{ path: 'f.ts', withMarkers: 'm', labratVersion: 'l', upstreamPatch: 'p' }],
+    };
+    const prompt = buildAdaptationPrompt(ctx, 'Labrat is a research tool that runs experiments.');
+    assert(prompt.includes('Labrat Project Summary'), 'prompt summary: has summary section');
+    assert(prompt.includes('Labrat is a research tool'), 'prompt summary: contains summary text');
+  }
+
+  // Prompt omits summary section when not provided
+  {
+    const ctx: ConflictContext = {
+      hash: 'nosum123',
+      subject: 'test',
+      conflictingFiles: [{ path: 'f.ts', withMarkers: 'm', labratVersion: 'l', upstreamPatch: 'p' }],
+    };
+    const prompt = buildAdaptationPrompt(ctx);
+    assert(!prompt.includes('Labrat Project Summary'), 'prompt no-summary: summary section absent');
+  }
+
+  console.log('\n=== S03: parseAdaptedFiles ===');
+
+  // Parse single file block
+  {
+    const output = [
+      'Here is the adapted file:',
+      '```',
+      '// FILE: src/retry.ts',
+      'export const retry = true;',
+      'export const timeout = 5000;',
+      '```',
+    ].join('\n');
+    const files = parseAdaptedFiles(output);
+    assertEq(files.length, 1, 'parse single: returns 1 file');
+    assertEq(files[0]!.path, 'src/retry.ts', 'parse single: correct path');
+    assert(files[0]!.content.includes('export const retry = true;'), 'parse single: content has retry');
+    assert(files[0]!.content.includes('export const timeout = 5000;'), 'parse single: content has timeout');
+  }
+
+  // Parse multiple files with prose between
+  {
+    const output = [
+      'I adapted both files:',
+      '',
+      '```typescript',
+      '// FILE: src/a.ts',
+      'const a = 1;',
+      '```',
+      '',
+      'And here is the second file:',
+      '',
+      '```ts',
+      '// FILE: src/b.ts',
+      'const b = 2;',
+      '```',
+    ].join('\n');
+    const files = parseAdaptedFiles(output);
+    assertEq(files.length, 2, 'parse multi: returns 2 files');
+    assertEq(files[0]!.path, 'src/a.ts', 'parse multi: first path');
+    assertEq(files[1]!.path, 'src/b.ts', 'parse multi: second path');
+    assert(files[0]!.content.includes('const a = 1'), 'parse multi: first content');
+    assert(files[1]!.content.includes('const b = 2'), 'parse multi: second content');
+  }
+
+  // Parse handles missing trailing fence
+  {
+    const output = [
+      '```',
+      '// FILE: src/unterminated.ts',
+      'const x = 1;',
+      'const y = 2;',
+    ].join('\n');
+    const files = parseAdaptedFiles(output);
+    assertEq(files.length, 1, 'parse no-fence: returns 1 file');
+    assertEq(files[0]!.path, 'src/unterminated.ts', 'parse no-fence: correct path');
+    assert(files[0]!.content.includes('const x = 1'), 'parse no-fence: has content');
+  }
+
+  // Block without FILE header is skipped
+  {
+    const output = [
+      '```',
+      'just some code without a FILE header',
+      'more code',
+      '```',
+    ].join('\n');
+    const files = parseAdaptedFiles(output);
+    assertEq(files.length, 0, 'parse no-header: skips block without FILE header');
+  }
+
+  // ## FILE: header variant
+  {
+    const output = [
+      '```',
+      '## FILE: src/alt-header.ts',
+      'const alt = true;',
+      '```',
+    ].join('\n');
+    const files = parseAdaptedFiles(output);
+    assertEq(files.length, 1, 'parse ## header: returns 1 file');
+    assertEq(files[0]!.path, 'src/alt-header.ts', 'parse ## header: correct path');
+  }
+
+  // **FILE:** header variant
+  {
+    const output = [
+      '```',
+      '**FILE:** src/bold-header.ts',
+      'const bold = true;',
+      '```',
+    ].join('\n');
+    const files = parseAdaptedFiles(output);
+    assertEq(files.length, 1, 'parse ** header: returns 1 file');
+    assertEq(files[0]!.path, 'src/bold-header.ts', 'parse ** header: correct path');
+  }
+
+  // Completely unparseable input returns empty
+  {
+    const files1 = parseAdaptedFiles('Just some text with no code blocks at all.');
+    assertEq(files1.length, 0, 'parse unparseable: plain text returns empty');
+
+    const files2 = parseAdaptedFiles('');
+    assertEq(files2.length, 0, 'parse unparseable: empty string returns empty');
+  }
+
+  console.log('\n=== S03: applyAdaptedFiles ===');
+
+  // Successful application: writes files, commits, verifies, updates state
+  {
+    const repo = setupRepo();
+    try {
+      const adaptedFiles: AdaptedFile[] = [
+        { path: 'src/adapted.ts', content: 'export const adapted = true;\n' },
+      ];
+      const result = applyAdaptedFiles(repo, 'abc123def456789', 'fix: retry logic', adaptedFiles);
+
+      assert(result.success === true, 'adapt apply: success is true');
+      assert(result.conflicted === false, 'adapt apply: conflicted is false');
+      assert(result.error === undefined, 'adapt apply: no error');
+      assert(result.verifyResult !== undefined, 'adapt apply: verifyResult present');
+
+      // File should exist
+      const fileContent = readFileSync(join(repo, 'src', 'adapted.ts'), 'utf-8');
+      assert(fileContent.includes('export const adapted = true'), 'adapt apply: file written correctly');
+
+      // Commit message pattern
+      const lastCommit = run('git log -1 --format=%s', repo);
+      assert(lastCommit.includes('upstream-adapt('), 'adapt apply: commit message has upstream-adapt prefix');
+      assert(lastCommit.includes('abc123de'), 'adapt apply: commit message has short hash');
+      assert(lastCommit.includes('fix: retry logic'), 'adapt apply: commit message has subject');
+
+      // State updated
+      const state = readSyncState(repo);
+      assert(state.appliedCommits.includes('abc123def456789'), 'adapt apply: hash in appliedCommits');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  }
+
+  // Empty adaptedFiles → error
+  {
+    const repo = setupRepo();
+    try {
+      const result = applyAdaptedFiles(repo, 'empty123', 'test', []);
+      assert(result.success === false, 'adapt empty: success is false');
+      assert(result.error !== undefined, 'adapt empty: error present');
+      assert(result.error!.includes('No adapted files'), 'adapt empty: error mentions empty');
+
+      // Repo should be clean
+      const status = run('git status --porcelain', repo);
+      assertEq(status, '', 'adapt empty: repo is clean');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  }
+
+  // Multiple files applied and committed together
+  {
+    const repo = setupRepo();
+    try {
+      const adaptedFiles: AdaptedFile[] = [
+        { path: 'multi-a.ts', content: 'const a = 1;\n' },
+        { path: 'multi-b.ts', content: 'const b = 2;\n' },
+      ];
+      const result = applyAdaptedFiles(repo, 'multi123456789', 'feat: multi-file', adaptedFiles);
+
+      assert(result.success === true, 'adapt multi: success');
+      assert(existsSync(join(repo, 'multi-a.ts')), 'adapt multi: file-a exists');
+      assert(existsSync(join(repo, 'multi-b.ts')), 'adapt multi: file-b exists');
+
+      // Both files in one commit
+      const filesInCommit = run('git diff-tree --no-commit-id --name-only -r HEAD', repo);
+      assert(filesInCommit.includes('multi-a.ts'), 'adapt multi: file-a in commit');
+      assert(filesInCommit.includes('multi-b.ts'), 'adapt multi: file-b in commit');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  }
+
+  // Repo stays clean after every exit path (tested via empty input above and success above)
+  // Additional: verify no staged or modified files after successful adapt (untracked .gsd/ is expected — sync state file)
+  {
+    const repo = setupRepo();
+    try {
+      const adaptedFiles: AdaptedFile[] = [
+        { path: 'clean-check.ts', content: 'export const clean = true;\n' },
+      ];
+      applyAdaptedFiles(repo, 'clean123456789', 'test: clean check', adaptedFiles);
+      // Check for staged/modified (exclude untracked .gsd/ which is the sync state dir)
+      const staged = run('git diff --cached --name-only', repo);
+      assertEq(staged, '', 'adapt clean: no staged changes after success');
+      const modified = run('git diff --name-only', repo);
+      assertEq(modified, '', 'adapt clean: no modified files after success');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
     }
   }
 
