@@ -14,6 +14,17 @@ Guidelines:
 
 ## Active
 
+### R026 — GSD-2 Upstream Feature Sync
+- Class: operability
+- Status: active
+- Description: Mechanism for analyzing GSD-2 upstream changes and selectively integrating relevant infrastructure improvements into Labrat. Since both share the same core infrastructure DNA, an LLM can diff upstream changes against Labrat's codebase and port relevant features.
+- Why it matters: GSD-2 continues to evolve. Labrat should benefit from infrastructure fixes and improvements without manual porting effort.
+- Source: user
+- Primary owning slice: M003/S01
+- Supporting slices: M003/S02, M003/S03
+- Validation: unmapped
+- Notes: Upstream remote already tracked. Cherry-pick selective, not merge. An LLM analyzing code differences can identify and adapt new features.
+
 ### R001 — GSD-2 Base & Upstream Tracking
 - Class: constraint
 - Status: validated
@@ -303,16 +314,7 @@ Guidelines:
 
 ## Deferred
 
-### R026 — GSD-2 Upstream Feature Sync
-- Class: operability
-- Status: deferred
-- Description: Mechanism for analyzing GSD-2 upstream changes and selectively integrating relevant infrastructure improvements into Labrat. Since both share the same core infrastructure DNA, an LLM can diff upstream changes against Labrat's codebase and port relevant features.
-- Why it matters: GSD-2 continues to evolve. Labrat should benefit from infrastructure fixes and improvements without manual porting effort.
-- Source: user
-- Primary owning slice: M003
-- Supporting slices: none
-- Validation: unmapped
-- Notes: Upstream remote already tracked. Cherry-pick selective, not merge. An LLM analyzing code differences can identify and adapt new features.
+(none)
 
 ## Out of Scope
 
@@ -400,11 +402,11 @@ Guidelines:
 | R023 | anti-feature | out-of-scope | none | none | n/a |
 | R024 | differentiator | out-of-scope | none | none | n/a |
 | R025 | operability | out-of-scope | none | none | n/a |
-| R026 | operability | deferred | M003 | none | unmapped |
+| R026 | operability | active | M003/S01 | M003/S02, M003/S03 | unmapped |
 
 ## Coverage Summary
 
-- Active requirements: 0
-- Mapped to slices: 0
+- Active requirements: 1
+- Mapped to slices: 1
 - Validated: 20
 - Unmapped active requirements: 0
