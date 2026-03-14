@@ -303,17 +303,6 @@ Guidelines:
 
 ## Deferred
 
-### R018 — Runtime Steering
-- Class: core-capability
-- Status: validated
-- Description: `discuss` command to redirect the campaign while it runs. Reprioritize experiments, add new ideas, skip unpromising directions.
-- Why it matters: Research direction often changes based on intermediate results.
-- Source: user
-- Primary owning slice: M002/S03
-- Supporting slices: none
-- Validation: M002/S03 — `steering.ts` module with atomic STEERING.json I/O, `checkSteeringDirective` facade in `dispatchNextUnit`, three directive types (refocus/skip_phase/stop) with graceful degradation. `showDiscuss` routes to `showSteering` when campaign active. `steer-campaign.md` prompt template for LLM-assisted directive formulation. 137 contract tests.
-- Notes: `add_experiments` directive type deferred (D048).
-
 ### R026 — GSD-2 Upstream Feature Sync
 - Class: operability
 - Status: deferred
