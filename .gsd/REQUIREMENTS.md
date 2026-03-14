@@ -1,0 +1,347 @@
+# Requirements
+
+This file is the explicit capability and coverage contract for the project.
+
+Use it to track what is actively in scope, what has been validated by completed work, what is intentionally deferred, and what is explicitly out of scope.
+
+Guidelines:
+- Keep requirements capability-oriented, not a giant feature wishlist.
+- Requirements should be atomic, testable, and stated in plain language.
+- Every **Active** requirement should be mapped to a slice, deferred, blocked with reason, or moved out of scope.
+- Each requirement should have one accountable primary owner and may have supporting slices.
+- Research may suggest requirements, but research does not silently make them binding.
+- Validation means the requirement was actually proven by completed work and verification, not just discussed.
+
+## Active
+
+### R001 — GSD-2 Base & Upstream Tracking
+- Class: constraint
+- Status: active
+- Description: Repository starts from GSD-2 codebase with upstream remote for selective cherry-picks. Builds and runs.
+- Why it matters: All infrastructure (crash recovery, cost tracking, timeout, multi-provider LLM) comes from GSD-2 — rebuilding it is waste.
+- Source: user
+- Primary owning slice: M001/S01
+- Supporting slices: none
+- Validation: unmapped
+- Notes: `git remote add upstream` for GSD-2. Cherry-pick selectively, no direct merge.
+
+### R002 — Research Flow Semantics
+- Class: core-capability
+- Status: active
+- Description: State machine adapted for research where failure is data, phases are theories/hypotheses, and advancement is exploration-driven rather than success-gated.
+- Why it matters: This is the fundamental difference between Labrat and GSD-2. Research flow cannot use development flow semantics where failure blocks progress.
+- Source: user
+- Primary owning slice: M001/S02
+- Supporting slices: M001/S04
+- Validation: unmapped
+- Notes: Failed experiments advance the campaign with knowledge. Phases are exploratory, not commitments.
+
+### R003 — Experiment Loop
+- Class: primary-user-loop
+- Status: active
+- Description: Autonomous loop: modify target file(s) → commit → run eval → parse metrics → compare against best → keep if improved, revert if not → repeat.
+- Why it matters: This is the core product loop. Everything else supports it.
+- Source: user
+- Primary owning slice: M001/S03
+- Supporting slices: M001/S02, M001/S04
+- Validation: unmapped
+- Notes: Target files specified by user at campaign start. Eval script and infrastructure are immutable.
+
+### R004 — Multi-Metric Evaluation Framework
+- Class: core-capability
+- Status: active
+- Description: User-defined eval command produces JSON to stdout with named metrics. Configurable directions (min/max per metric). Weighted composite scoring. Hard timeout per eval (default 5 min).
+- Why it matters: Real research has multiple metrics. Single-metric is too narrow for general use.
+- Source: user
+- Primary owning slice: M001/S03
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Non-deterministic eval supported via `--runs N` flag (run N times, use median). Default N=1.
+
+### R005 — Fresh Context Per Experiment
+- Class: core-capability
+- Status: active
+- Description: Each experiment gets a clean LLM context. The prompt includes: research question, target file source, best results so far, compressed history of prior attempts, what to try next.
+- Why it matters: Prevents context pollution between experiments. LLM reasons from clean state with relevant history.
+- Source: user
+- Primary owning slice: M001/S04
+- Supporting slices: M001/S02
+- Validation: unmapped
+- Notes: Inherited from GSD-2's fresh-context-per-unit pattern.
+
+### R006 — Git-Based Experiment State
+- Class: continuity
+- Status: active
+- Description: Branch per campaign. Each experiment is an atomic commit. Failed experiments revert cleanly. Improvements accumulate on the branch.
+- Why it matters: Git is the state backbone — experiments are traceable, revertable, and survive crashes.
+- Source: user
+- Primary owning slice: M001/S02
+- Supporting slices: M001/S03
+- Validation: unmapped
+- Notes: Adapts GSD-2's branch-per-slice strategy.
+
+### R007 — Crash Recovery for Experiments
+- Class: failure-visibility
+- Status: active
+- Description: Lock file tracks current experiment. On restart: detect interruption, revert incomplete changes, resume from clean state. No manual intervention.
+- Why it matters: Silent failure is the worst outcome. Overnight runs must survive crashes.
+- Source: user
+- Primary owning slice: M001/S05
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Adapted from GSD-2's crash recovery. Must revert incomplete experiment on resume.
+
+### R008 — Cost & Token Tracking with Budget Ceiling
+- Class: operability
+- Status: active
+- Description: Cost tracked per experiment and per campaign total. Budget ceiling pauses before exceeding user-defined limit.
+- Why it matters: Overnight runs can be expensive. User needs cost visibility and a safety valve.
+- Source: inferred
+- Primary owning slice: M001/S05
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Inherited from GSD-2's metrics system. Budget ceiling already implemented.
+
+### R009 — Timeout & Idle Supervision
+- Class: operability
+- Status: active
+- Description: Configurable timeouts per experiment and per eval execution. Idle detection for stuck agents.
+- Why it matters: Prevents runaway experiments from consuming time and money.
+- Source: inferred
+- Primary owning slice: M001/S05
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Inherited from GSD-2's timeout supervision.
+
+### R010 — Experiment Log
+- Class: continuity
+- Status: active
+- Description: Structured JSON log of each experiment: ID, timestamp, description of change, metrics before/after, decision (keep/revert), cost, duration. Crash-survivable. Queryable and sorteable.
+- Why it matters: The log is the research artifact. Must survive crashes and be useful for analysis.
+- Source: user
+- Primary owning slice: M001/S05
+- Supporting slices: M001/S03
+- Validation: unmapped
+- Notes: Append-only, flushed to disk after each experiment.
+
+### R011 — Live MLOps Integration
+- Class: integration
+- Status: active
+- Description: W&B and MLFlow connected via REST API in real-time while the loop runs. Labrat logs orchestration metadata (experiment ID, keep/discard, timing, cost). User's eval scripts handle domain tracking (loss curves, model artifacts) natively via their own W&B/MLFlow calls.
+- Why it matters: Users already have MLOps tools. Labrat must fit into that ecosystem, not replace it.
+- Source: user
+- Primary owning slice: M001/S06
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Two-layer integration: Labrat logs orchestration, eval scripts log domain metrics. Both write to the same platform.
+
+### R012 — CLI Commands
+- Class: launchability
+- Status: active
+- Description: `start` (quick loop), `auto` (autonomous campaign), `stop` (graceful shutdown), `status` (progress), `report` (summary).
+- Why it matters: The CLI is the user's interface to Labrat.
+- Source: user
+- Primary owning slice: M001/S07
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Adapts GSD-2's existing CLI framework.
+
+### R013 — Terminal Morning Report
+- Class: primary-user-loop
+- Status: active
+- Description: Terminal summary showing: experiments run/kept/reverted, best result, improvement trajectory, cost breakdown, time elapsed, top experiments ranked. Plus link to MLOps platform dashboard.
+- Why it matters: "Wake up, check results" is the core user journey endpoint.
+- Source: user
+- Primary owning slice: M001/S07
+- Supporting slices: M001/S06
+- Validation: unmapped
+- Notes: Quick glance in terminal, deep dive in W&B/MLFlow dashboard.
+
+### R014 — Research Prompts
+- Class: core-capability
+- Status: active
+- Description: LLM sees target file source code, prior experiment diffs, compressed history, best results. Decides what code changes to try. Prompt is experiment-oriented, not development-oriented.
+- Why it matters: The prompt shapes the LLM's exploration strategy. Research prompts ≠ development prompts.
+- Source: user
+- Primary owning slice: M001/S04
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Replaces GSD-2's 20+ development prompt templates.
+
+### R015 — Full LLM Provider Support
+- Class: constraint
+- Status: active
+- Description: All 20+ LLM providers from GSD-2 available. Users pick whatever model they want.
+- Why it matters: Zero cost to maintain — it's inherited infrastructure. Different models suit different research tasks.
+- Source: user
+- Primary owning slice: M001/S01
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Inherited from GSD-2. No changes needed.
+
+## Validated
+
+(none yet)
+
+## Deferred
+
+### R016 — Research Agenda Planning
+- Class: core-capability
+- Status: deferred
+- Description: Discussion flow for capturing research question, dimensions to explore, evaluation criteria. Auto-decomposition into planned experiments. Reassessment after batches.
+- Why it matters: Structured exploration is more efficient than free exploration for complex research questions.
+- Source: user
+- Primary owning slice: M002
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred to M002. MVP supports free exploration; structured agendas come later.
+
+### R017 — Simplicity-Aware Keep/Discard
+- Class: differentiator
+- Status: deferred
+- Description: Beyond metric improvement, consider code complexity. Prefer simpler solutions over marginal improvements. Configurable weight.
+- Why it matters: Karpathy's insight — simpler code that performs similarly is often better than complex code with marginal gains.
+- Source: user
+- Primary owning slice: M002
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred to M002.
+
+### R018 — Runtime Steering
+- Class: core-capability
+- Status: deferred
+- Description: `discuss` command to redirect the campaign while it runs. Reprioritize experiments, add new ideas, skip unpromising directions.
+- Why it matters: Research direction often changes based on intermediate results.
+- Source: user
+- Primary owning slice: M002
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred to M002.
+
+### R019 — Multi-File Experiment Scope
+- Class: core-capability
+- Status: deferred
+- Description: Experiments can modify multiple files. Scope of modification specified per campaign.
+- Why it matters: Many research tasks span multiple files.
+- Source: user
+- Primary owning slice: M002
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred to M002. MVP uses single target file.
+
+### R020 — Experiment Dependency/Sequencing
+- Class: core-capability
+- Status: deferred
+- Description: Some experiments depend on others. Support for sequential phases within a campaign.
+- Why it matters: Complex research has natural phases where later experiments build on earlier findings.
+- Source: user
+- Primary owning slice: M002
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred to M002.
+
+### R026 — GSD-2 Upstream Feature Sync
+- Class: operability
+- Status: deferred
+- Description: Mechanism for analyzing GSD-2 upstream changes and selectively integrating relevant infrastructure improvements into Labrat. Since both share the same core infrastructure DNA, an LLM can diff upstream changes against Labrat's codebase and port relevant features.
+- Why it matters: GSD-2 continues to evolve. Labrat should benefit from infrastructure fixes and improvements without manual porting effort.
+- Source: user
+- Primary owning slice: M003
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Upstream remote already tracked. Cherry-pick selective, not merge. An LLM analyzing code differences can identify and adapt new features.
+
+## Out of Scope
+
+### R021 — Visualization & Dashboards
+- Class: anti-feature
+- Status: out-of-scope
+- Description: Charts, graphs, and visual experiment dashboards built into Labrat.
+- Why it matters: Prevents building what W&B/MLFlow already do well. Integrate, don't build.
+- Source: user
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: n/a
+- Notes: Delegated to W&B/MLFlow dashboards.
+
+### R022 — Statistical Analysis
+- Class: anti-feature
+- Status: out-of-scope
+- Description: Significance tests, confidence intervals, noise detection built into Labrat.
+- Why it matters: Existing statistical tools (scipy, MLOps platforms) handle this.
+- Source: user
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: n/a
+- Notes: User's eval scripts or MLOps platform handle statistical analysis.
+
+### R023 — Reproducibility / Environment Capture
+- Class: anti-feature
+- Status: out-of-scope
+- Description: Exact environment capture and reproduction per experiment.
+- Why it matters: Git history + MLOps artifact tracking already provide this.
+- Source: user
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: n/a
+- Notes: Delegated to git + MLOps platforms.
+
+### R024 — Domain-Specific Templates
+- Class: differentiator
+- Status: out-of-scope
+- Description: Pre-built templates for ML training, API benchmarking, algorithm comparison, etc.
+- Why it matters: Low priority — the general loop handles all domains.
+- Source: user
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: n/a
+- Notes: May revisit after core is proven.
+
+### R025 — Notifications (Slack/Discord)
+- Class: operability
+- Status: out-of-scope
+- Description: Push notifications when campaign completes or hits budget ceiling.
+- Why it matters: Delegated to W&B/MLFlow alerting or separate webhook integration.
+- Source: user
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: n/a
+- Notes: MLOps platforms already have alerting capabilities.
+
+## Traceability
+
+| ID | Class | Status | Primary owner | Supporting | Proof |
+|---|---|---|---|---|---|
+| R001 | constraint | active | M001/S01 | none | unmapped |
+| R002 | core-capability | active | M001/S02 | M001/S04 | unmapped |
+| R003 | primary-user-loop | active | M001/S03 | M001/S02, M001/S04 | unmapped |
+| R004 | core-capability | active | M001/S03 | none | unmapped |
+| R005 | core-capability | active | M001/S04 | M001/S02 | unmapped |
+| R006 | continuity | active | M001/S02 | M001/S03 | unmapped |
+| R007 | failure-visibility | active | M001/S05 | none | unmapped |
+| R008 | operability | active | M001/S05 | none | unmapped |
+| R009 | operability | active | M001/S05 | none | unmapped |
+| R010 | continuity | active | M001/S05 | M001/S03 | unmapped |
+| R011 | integration | active | M001/S06 | none | unmapped |
+| R012 | launchability | active | M001/S07 | none | unmapped |
+| R013 | primary-user-loop | active | M001/S07 | M001/S06 | unmapped |
+| R014 | core-capability | active | M001/S04 | none | unmapped |
+| R015 | constraint | active | M001/S01 | none | unmapped |
+| R016 | core-capability | deferred | M002 | none | unmapped |
+| R017 | differentiator | deferred | M002 | none | unmapped |
+| R018 | core-capability | deferred | M002 | none | unmapped |
+| R019 | core-capability | deferred | M002 | none | unmapped |
+| R020 | core-capability | deferred | M002 | none | unmapped |
+| R021 | anti-feature | out-of-scope | none | none | n/a |
+| R022 | anti-feature | out-of-scope | none | none | n/a |
+| R023 | anti-feature | out-of-scope | none | none | n/a |
+| R024 | differentiator | out-of-scope | none | none | n/a |
+| R025 | operability | out-of-scope | none | none | n/a |
+| R026 | operability | deferred | M003 | none | unmapped |
+
+## Coverage Summary
+
+- Active requirements: 15
+- Mapped to slices: 15
+- Validated: 0
+- Unmapped active requirements: 0
