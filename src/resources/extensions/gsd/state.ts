@@ -31,8 +31,9 @@ import {
 } from './paths.ts';
 import { getActiveSliceBranch } from './worktree.ts';
 
-import { readdirSync } from 'fs';
+import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import type { CampaignConfig } from './types.ts';
 
 // ─── Query Functions ───────────────────────────────────────────────────────
 
@@ -48,6 +49,50 @@ export function isSliceComplete(plan: SlicePlan): boolean {
  */
 export function isMilestoneComplete(roadmap: Roadmap): boolean {
   return roadmap.slices.length > 0 && roadmap.slices.every(s => s.done);
+}
+
+// ─── Campaign Config ────────────────────────────────────────────────────
+
+/**
+ * Attempt to parse a CAMPAIGN.json file from a slice directory.
+ * Returns null if the file is missing, empty, or malformed — never throws.
+ */
+export function parseCampaignConfig(sliceDir: string): CampaignConfig | null {
+  const campaignPath = join(sliceDir, 'CAMPAIGN.json');
+  if (!existsSync(campaignPath)) return null;
+  try {
+    const raw = readFileSync(campaignPath, 'utf-8').trim();
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Minimal shape validation
+    if (
+      typeof parsed.name !== 'string' ||
+      !Array.isArray(parsed.targetFiles) ||
+      typeof parsed.evalConfig !== 'object' ||
+      typeof parsed.maxExperiments !== 'number' ||
+      typeof parsed.budgetPerExperiment !== 'number'
+    ) {
+      return null;
+    }
+    return parsed as CampaignConfig;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Count completed experiments from the experiment log (JSONL) in a slice directory.
+ * Each line is a JSON object representing one completed experiment.
+ */
+export function countExperiments(sliceDir: string): number {
+  const logPath = join(sliceDir, 'EXPERIMENT-LOG.jsonl');
+  if (!existsSync(logPath)) return 0;
+  try {
+    const content = readFileSync(logPath, 'utf-8');
+    return content.split('\n').filter(line => line.trim().length > 0).length;
+  } catch {
+    return 0;
+  }
 }
 
 // ─── State Derivation ──────────────────────────────────────────────────────
@@ -359,6 +404,37 @@ export async function deriveState(basePath: string): Promise<GSDState> {
     done: slicePlan.tasks.filter(t => t.done).length,
     total: slicePlan.tasks.length,
   };
+
+  // ── Campaign detection: if a valid CAMPAIGN.json exists, enter experimenting phase ──
+  const sliceDir = resolveSlicePath(basePath, activeMilestone.id, activeSlice.id);
+  if (sliceDir) {
+    const campaign = parseCampaignConfig(sliceDir);
+    if (campaign) {
+      const experimentsDone = countExperiments(sliceDir);
+      const activeTaskEntry = slicePlan.tasks.find(t => !t.done);
+      return {
+        activeMilestone,
+        activeSlice,
+        activeTask: activeTaskEntry
+          ? { id: activeTaskEntry.id, title: activeTaskEntry.title }
+          : null,
+        phase: 'experimenting',
+        recentDecisions: [],
+        blockers: [],
+        nextAction: `Run experiment ${experimentsDone + 1}/${campaign.maxExperiments} in campaign "${campaign.name}" (slice ${activeSlice.id}).`,
+        activeBranch: activeBranch ?? undefined,
+        registry,
+        requirements,
+        progress: {
+          milestones: milestoneProgress,
+          slices: sliceProgress,
+          tasks: taskProgress,
+          experiments: { done: experimentsDone, total: campaign.maxExperiments },
+        },
+      };
+    }
+  }
+
   const activeTaskEntry = slicePlan.tasks.find(t => !t.done);
 
   if (!activeTaskEntry) {

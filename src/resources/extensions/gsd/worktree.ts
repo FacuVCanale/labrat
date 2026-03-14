@@ -177,6 +177,30 @@ export function mergeSliceToMain(
   return getService(basePath).mergeSliceToMain(milestoneId, sliceId, sliceTitle);
 }
 
+// ─── Experiment Git Operations (delegate to GitServiceImpl) ─────────────
+
+/**
+ * Commit the current experiment's changes atomically.
+ * Returns the commit hash for later revert reference.
+ * Message format: `experiment(E001): {description}`
+ */
+export function commitExperiment(
+  basePath: string, experimentId: string, description: string,
+): string {
+  return getService(basePath).commitExperiment(experimentId, description);
+}
+
+/**
+ * Revert an experiment commit by hash, creating a clean revert commit.
+ * Message format: `revert(E001): discard — {reason}`
+ * Idempotent: no-op if the commit was already reverted.
+ */
+export function revertExperiment(
+  basePath: string, experimentId: string, commitHash: string, reason: string,
+): void {
+  getService(basePath).revertExperiment(experimentId, commitHash, reason);
+}
+
 // ─── Query Functions (delegate to GitServiceImpl) ──────────────────────────
 
 /**

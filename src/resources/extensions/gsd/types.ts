@@ -5,7 +5,7 @@
 // ─── Enums & Literal Unions ────────────────────────────────────────────────
 
 export type RiskLevel = 'low' | 'medium' | 'high';
-export type Phase = 'pre-planning' | 'discussing' | 'researching' | 'planning' | 'executing' | 'verifying' | 'summarizing' | 'advancing' | 'completing-milestone' | 'replanning-slice' | 'complete' | 'paused' | 'blocked';
+export type Phase = 'pre-planning' | 'discussing' | 'researching' | 'planning' | 'executing' | 'experimenting' | 'verifying' | 'summarizing' | 'advancing' | 'completing-milestone' | 'replanning-slice' | 'complete' | 'paused' | 'blocked';
 export type ContinueStatus = 'in_progress' | 'interrupted' | 'compacted';
 
 // ─── Roadmap (Milestone-level) ─────────────────────────────────────────────
@@ -183,5 +183,55 @@ export interface GSDState {
     milestones: { done: number; total: number };
     slices?: { done: number; total: number };
     tasks?: { done: number; total: number };
+    experiments?: { done: number; total: number };
   };
+}
+
+// ─── Research / Experiment Types ──────────────────────────────────────────
+
+export type MetricDirection = 'min' | 'max';
+
+export interface MetricDefinition {
+  name: string;
+  direction: MetricDirection;
+  weight: number;
+}
+
+export interface EvaluationConfig {
+  command: string;
+  timeout: number;          // seconds
+  metrics: MetricDefinition[];
+  runs: number;             // number of eval runs per experiment for statistical confidence
+}
+
+export type KeepDiscardDecision = {
+  decision: 'keep' | 'discard';
+  reason: string;
+  comparison: Record<string, { before: number; after: number; improved: boolean }>;
+};
+
+export interface ExperimentResult {
+  id: string;               // e.g. "exp-001"
+  description: string;
+  metrics: Record<string, number>;
+  decision: KeepDiscardDecision;
+  duration: number;          // ms
+  cost: number;              // USD
+  diff: string;              // git diff summary or patch reference
+}
+
+export interface CampaignConfig {
+  name: string;
+  targetFiles: string[];
+  evalConfig: EvaluationConfig;
+  maxExperiments: number;
+  budgetPerExperiment: number;  // USD
+}
+
+export interface ExperimentContext {
+  experimentNumber: number;
+  targetFileSource: string[];
+  bestMetrics: Record<string, number>;
+  priorExperiments: ExperimentResult[];
+  researchQuestion: string;
 }

@@ -672,6 +672,11 @@ function describeNextUnit(state: GSDState): { label: string; description: string
       return { label: `Plan ${sid}: ${sTitle}`, description: "Research and decompose into tasks." };
     case "executing":
       return { label: `Execute ${tid}: ${tTitle}`, description: "Run the next task in a fresh session." };
+    case "experimenting": {
+      const expProgress = state.progress?.experiments;
+      const expLabel = expProgress ? `${expProgress.done + 1}/${expProgress.total}` : "next";
+      return { label: `Run experiment ${expLabel}`, description: "Run the next experiment in the campaign." };
+    }
     case "summarizing":
       return { label: `Complete ${sid}: ${sTitle}`, description: "Write summary, UAT, and merge to main." };
     case "replanning-slice":
@@ -696,6 +701,7 @@ function unitVerb(unitType: string): string {
     case "replan-slice": return "replanning";
     case "reassess-roadmap": return "reassessing";
     case "run-uat": return "running UAT";
+    case "run-experiment": return "experimenting";
     default: return unitType;
   }
 }
@@ -711,6 +717,7 @@ function unitPhaseLabel(unitType: string): string {
     case "replan-slice": return "REPLAN";
     case "reassess-roadmap": return "REASSESS";
     case "run-uat": return "UAT";
+    case "run-experiment": return "EXPERIMENT";
     default: return unitType.toUpperCase();
   }
 }
@@ -727,6 +734,7 @@ function peekNext(unitType: string, state: GSDState): string {
     case "replan-slice": return `re-execute ${sid}`;
     case "reassess-roadmap": return "advance to next slice";
     case "run-uat": return "reassess roadmap";
+    case "run-experiment": return "next experiment";
     default: return "";
   }
 }
@@ -805,7 +813,7 @@ function updateProgressWidget(
           lines.push(truncateToWidth(`${pad}${theme.fg("dim", mid.title)}`, width));
         }
 
-        if (slice && unitType !== "research-milestone" && unitType !== "plan-milestone") {
+        if (slice && unitType !== "research-milestone" && unitType !== "plan-milestone" && unitType !== "complete-milestone") {
           lines.push(truncateToWidth(
             `${pad}${theme.fg("text", theme.bold(`${slice.id}: ${slice.title}`))}`,
             width,
@@ -1272,6 +1280,26 @@ async function dispatchNextUnit(
       unitType = "replan-slice";
       unitId = `${mid}/${sid}`;
       prompt = await buildReplanSlicePrompt(mid, midTitle!, sid, sTitle, basePath);
+
+    } else if (state.phase === "experimenting") {
+      // Run next experiment in a campaign
+      const sid = state.activeSlice!.id;
+      const expProgress = state.progress?.experiments;
+      const expNum = (expProgress?.done ?? 0) + 1;
+      unitType = "run-experiment";
+      unitId = `${mid}/${sid}`;
+      // Stub prompt — real experiment prompt building is S04's job
+      prompt = [
+        `You are executing GSD auto-mode.`,
+        ``,
+        `## UNIT: Run Experiment ${expNum} — Slice ${sid}, Milestone ${mid}`,
+        ``,
+        `Campaign is active in this slice. Run experiment #${expNum}.`,
+        `Read CAMPAIGN.json in the slice directory for evaluation config.`,
+        `Read EXPERIMENT-LOG.jsonl for prior experiment results.`,
+        ``,
+        `After running the experiment, append the result as a JSON line to EXPERIMENT-LOG.jsonl.`,
+      ].join("\n");
 
     } else if (state.phase === "executing" && state.activeTask) {
       // Execute next task
@@ -2443,7 +2471,7 @@ function ensurePreconditions(
     }
   }
 
-  if (["research-slice", "plan-slice", "execute-task", "complete-slice", "replan-slice"].includes(unitType) && parts.length >= 2) {
+  if (["research-slice", "plan-slice", "execute-task", "complete-slice", "replan-slice", "run-experiment"].includes(unitType) && parts.length >= 2) {
     const sid = parts[1]!;
     ensureSliceBranch(base, mid, sid);
   }
@@ -2850,6 +2878,11 @@ export function resolveExpectedArtifactPath(unitType: string, unitId: string, ba
       const dir = resolveMilestonePath(base, mid);
       return dir ? join(dir, buildMilestoneFileName(mid, "SUMMARY")) : null;
     }
+    case "run-experiment": {
+      // Experiment results are appended to the JSONL log in the slice directory
+      const dir = resolveSlicePath(base, mid, sid!);
+      return dir ? join(dir, "EXPERIMENT-LOG.jsonl") : null;
+    }
     default:
       return null;
   }
@@ -2953,6 +2986,8 @@ function diagnoseExpectedArtifact(unitType: string, unitId: string, base: string
       return `${relSliceFile(base, mid!, sid!, "UAT-RESULT")} (UAT result)`;
     case "complete-milestone":
       return `${relMilestoneFile(base, mid!, "SUMMARY")} (milestone summary)`;
+    case "run-experiment":
+      return `${relSlicePath(base, mid!, sid!)}\/EXPERIMENT-LOG.jsonl (experiment log entry)`;
     default:
       return null;
   }

@@ -72,6 +72,13 @@ export interface RemoteQuestionsConfig {
   poll_interval_seconds?: number;  // clamped to 2-30
 }
 
+export interface GSDResearchPreferences {
+  default_eval_timeout?: number;
+  max_experiments?: number;
+  budget_per_experiment?: number;
+  metric_directions?: Record<string, 'min' | 'max'>;
+}
+
 export interface GSDPreferences {
   version?: number;
   always_use_skills?: string[];
@@ -86,6 +93,7 @@ export interface GSDPreferences {
   budget_ceiling?: number;
   remote_questions?: RemoteQuestionsConfig;
   git?: GitPreferences;
+  research?: GSDResearchPreferences;
 }
 
 export interface LoadedGSDPreferences {
@@ -525,6 +533,7 @@ export function resolveModelWithFallbacksForUnit(unitType: string): ResolvedMode
       phaseConfig = m.planning;
       break;
     case "execute-task":
+    case "run-experiment":
       phaseConfig = m.execution;
       break;
     case "complete-slice":
@@ -578,6 +587,9 @@ function mergePreferences(base: GSDPreferences, override: GSDPreferences): GSDPr
       : base.remote_questions,
     git: (base.git || override.git)
       ? { ...(base.git ?? {}), ...(override.git ?? {}) }
+      : undefined,
+    research: (base.research || override.research)
+      ? { ...(base.research ?? {}), ...(override.research ?? {}) }
       : undefined,
   };
 }

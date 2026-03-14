@@ -8,6 +8,7 @@ const SLICE_DISPATCH_TYPES = new Set([
   "replan-slice",
   "execute-task",
   "complete-slice",
+  "run-experiment",
 ]);
 
 function readTrackedFileFromBranch(base: string, branch: string, relPath: string): string | null {

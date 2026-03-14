@@ -55,7 +55,7 @@ This milestone is complete only when all are true:
 - [x] **S01: Repository Bootstrap & Build** `risk:medium` `depends:[]`
   > After this: `npm run build` passes with GSD-2 source in the repo, upstream remote set, package identity updated to Labrat, all inherited infrastructure functional.
 
-- [ ] **S02: Research Types & State Machine** `risk:high` `depends:[S01]`
+- [x] **S02: Research Types & State Machine** `risk:high` `depends:[S01]`
   > After this: state machine recognizes research flow — phases are theories, failed experiments advance instead of blocking, campaign/phase/experiment hierarchy works with the existing Milestone/Slice/Task structure.
 
 - [ ] **S03: Eval Runner & Keep/Discard Engine** `risk:high` `depends:[S02]`

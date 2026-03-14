@@ -541,6 +541,63 @@ export class GitServiceImpl {
     }
   }
 
+  // ─── Experiment Lifecycle ───────────────────────────────────────────────
+
+  /**
+   * Commit the current experiment's changes atomically.
+   *
+   * Stages all modified/added files (via smartStage) and commits with
+   * message `experiment(E001): {description}`. Returns the commit hash
+   * for later revert reference.
+   *
+   * Throws if there are no changes to commit.
+   */
+  commitExperiment(experimentId: string, description: string): string {
+    this.smartStage();
+
+    // Check if anything was actually staged
+    const staged = this.git(["diff", "--cached", "--stat"], { allowFailure: true });
+    if (!staged) {
+      throw new Error(
+        `commitExperiment(${experimentId}): no changes to commit. ` +
+        `Ensure the experiment modified at least one tracked file.`,
+      );
+    }
+
+    const message = `experiment(${experimentId}): ${description}`;
+    this.git(["commit", "-F", "-"], { input: message });
+
+    // Return the commit hash for revert reference
+    return this.git(["rev-parse", "HEAD"]);
+  }
+
+  /**
+   * Revert an experiment commit by hash, creating a clean revert commit.
+   *
+   * Message format: `revert(E001): discard — {reason}`
+   *
+   * Idempotent: if the commit has already been reverted (git revert fails
+   * because the revert would produce an empty commit), this is a no-op.
+   */
+  revertExperiment(experimentId: string, commitHash: string, reason: string): void {
+    // Try the revert — if it fails, check if it's because it was already reverted
+    const result = this.git(
+      ["revert", "--no-commit", commitHash],
+      { allowFailure: true },
+    );
+
+    // Check if there are actual changes staged from the revert
+    const staged = this.git(["diff", "--cached", "--stat"], { allowFailure: true });
+    if (!staged) {
+      // Already reverted or no diff — reset and return (idempotent)
+      this.git(["reset", "HEAD"], { allowFailure: true });
+      return;
+    }
+
+    const message = `revert(${experimentId}): discard — ${reason}`;
+    this.git(["commit", "-F", "-"], { input: message });
+  }
+
   // ─── Merge ─────────────────────────────────────────────────────────────
 
   /**

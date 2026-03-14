@@ -27,13 +27,13 @@ Guidelines:
 
 ### R002 — Research Flow Semantics
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: State machine adapted for research where failure is data, phases are theories/hypotheses, and advancement is exploration-driven rather than success-gated.
 - Why it matters: This is the fundamental difference between Labrat and GSD-2. Research flow cannot use development flow semantics where failure blocks progress.
 - Source: user
 - Primary owning slice: M001/S02
 - Supporting slices: M001/S04
-- Validation: unmapped
+- Validation: S02 — deriveState returns experimenting phase when campaign config present, malformed config degrades gracefully, all switch sites handle new phase, experiment revert+continue flow. 33 contract tests.
 - Notes: Failed experiments advance the campaign with knowledge. Phases are exploratory, not commitments.
 
 ### R003 — Experiment Loop
@@ -71,13 +71,13 @@ Guidelines:
 
 ### R006 — Git-Based Experiment State
 - Class: continuity
-- Status: active
+- Status: validated
 - Description: Branch per campaign. Each experiment is an atomic commit. Failed experiments revert cleanly. Improvements accumulate on the branch.
 - Why it matters: Git is the state backbone — experiments are traceable, revertable, and survive crashes.
 - Source: user
 - Primary owning slice: M001/S02
 - Supporting slices: M001/S03
-- Validation: unmapped
+- Validation: S02 — commitExperiment produces labeled atomic commits, revertExperiment produces clean reverts, idempotent on repeated calls, tree hash matches pre-experiment state. 14 integration tests.
 - Notes: Adapts GSD-2's branch-per-slice strategy.
 
 ### R007 — Crash Recovery for Experiments
@@ -186,6 +186,18 @@ Guidelines:
 - Status: validated
 - Description: Repository starts from GSD-2 codebase with upstream remote for selective cherry-picks. Builds and runs.
 - Validation: S01 — GSD-2 v2.10.6 merged, upstream remote set, `npm run build` passes, all workspace packages compile, native bindings present
+
+### R002 — Research Flow Semantics
+- Class: core-capability
+- Status: validated
+- Description: State machine adapted for research where failure is data, phases are theories/hypotheses, and advancement is exploration-driven rather than success-gated.
+- Validation: S02 — deriveState returns experimenting phase when campaign config present, malformed config degrades gracefully, all switch sites handle new phase, experiment revert+continue flow. 33 contract tests.
+
+### R006 — Git-Based Experiment State
+- Class: continuity
+- Status: validated
+- Description: Branch per campaign. Each experiment is an atomic commit. Failed experiments revert cleanly. Improvements accumulate on the branch.
+- Validation: S02 — commitExperiment produces labeled atomic commits, revertExperiment produces clean reverts, idempotent on repeated calls, tree hash matches pre-experiment state. 14 integration tests.
 
 ### R015 — Full LLM Provider Support
 - Class: constraint
@@ -323,11 +335,11 @@ Guidelines:
 | ID | Class | Status | Primary owner | Supporting | Proof |
 |---|---|---|---|---|---|
 | R001 | constraint | validated | M001/S01 | none | S01 |
-| R002 | core-capability | active | M001/S02 | M001/S04 | unmapped |
+| R002 | core-capability | validated | M001/S02 | M001/S04 | S02 |
 | R003 | primary-user-loop | active | M001/S03 | M001/S02, M001/S04 | unmapped |
 | R004 | core-capability | active | M001/S03 | none | unmapped |
 | R005 | core-capability | active | M001/S04 | M001/S02 | unmapped |
-| R006 | continuity | active | M001/S02 | M001/S03 | unmapped |
+| R006 | continuity | validated | M001/S02 | M001/S03 | S02 |
 | R007 | failure-visibility | active | M001/S05 | none | unmapped |
 | R008 | operability | active | M001/S05 | none | unmapped |
 | R009 | operability | active | M001/S05 | none | unmapped |
@@ -351,7 +363,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 13
-- Mapped to slices: 13
-- Validated: 2
+- Active requirements: 11
+- Mapped to slices: 11
+- Validated: 4
 - Unmapped active requirements: 0

@@ -12,7 +12,7 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 ## Current State
 
-GSD-2 v2.10.6 merged and rebranded as Labrat. Full codebase builds clean (`npm run build` passes). Package identity is `labrat` with `~/.labrat` config directory and `LABRAT_*` env vars. All 20+ LLM providers, crash recovery, cost tracking, and extension infrastructure inherited and functional. Upstream remote preserved for cherry-picks. Internal `@gsd/*` workspace names kept unchanged (D011).
+GSD-2 v2.10.6 merged and rebranded as Labrat. Full codebase builds clean. State machine extended with dual-mode operation: `experimenting` phase alongside existing development flow, triggered by CAMPAIGN.json presence. Research types defined (ExperimentResult, MetricDefinition, EvaluationConfig, KeepDiscardDecision, CampaignConfig, ExperimentContext). Git experiment lifecycle (commit/revert) operational with greppable commit conventions. `run-experiment` unit type routed through all dispatch sites. 47 contract/integration tests covering research flow. Next: eval runner and keep/discard engine (S03).
 
 ## Architecture / Key Patterns
 

@@ -25,6 +25,10 @@ export interface LockData {
   completedUnits: number;
   /** Path to the pi session JSONL file that was active when this unit started. */
   sessionFile?: string;
+  /** Current experiment number when the unit is a run-experiment type. */
+  experimentNumber?: number;
+  /** Last known metric values when interrupted during an experiment. */
+  lastMetrics?: Record<string, number>;
 }
 
 function lockPath(basePath: string): string {
