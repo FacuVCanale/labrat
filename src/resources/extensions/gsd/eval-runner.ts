@@ -17,10 +17,12 @@ import type {
   ExperimentResult,
   MetricDefinition,
   KeepDiscardDecision,
+  SimplicityScore,
 } from './types.js';
 
 import { revertExperiment } from './worktree.js';
 import { parseCampaignConfig } from './state.js';
+import { extractNumericDiffStat, computeSimplicityScore } from './simplicity-scorer.js';
 
 // ─── Subprocess Execution ───────────────────────────────────────────────────
 
@@ -188,11 +190,20 @@ export function computeCompositeScore(
  * If baseline is null (first experiment), always keep if eval succeeded.
  * Otherwise, compute composite score: > 0 → keep, <= 0 → discard.
  * Includes per-metric comparison in the decision.
+ *
+ * When simplicityWeight > 0 and simplicityScore is present, blends the metric
+ * signal with simplicity: blended = (1 - weight) * metricSignal + weight * simplicityScore.
+ * A positive blended score → keep, otherwise discard.
+ * When simplicityWeight is 0 or absent, behavior is identical to M001 (D042).
  */
 export function makeKeepDiscardDecision(
   current: Record<string, number>,
   baseline: Record<string, number> | null,
   metricDefs: MetricDefinition[],
+  opts?: {
+    simplicityWeight?: number;
+    simplicityScore?: SimplicityScore;
+  },
 ): KeepDiscardDecision {
   // First experiment — no baseline to compare against
   if (baseline === null) {
@@ -220,6 +231,37 @@ export function makeKeepDiscardDecision(
     comparison[def.name] = { before: base, after: cur, improved };
   }
 
+  // Simplicity blending: when weight > 0 and score is present
+  const simplicityWeight = opts?.simplicityWeight ?? 0;
+  const simplicityScore = opts?.simplicityScore;
+
+  if (simplicityWeight > 0 && simplicityScore) {
+    // metricSignal: 1 if composite > 0 (improvement), 0 otherwise
+    const metricSignal = score > 0 ? 1 : 0;
+    const simplicitySignal = simplicityScore.score;
+    const blended = (1 - simplicityWeight) * metricSignal + simplicityWeight * simplicitySignal;
+
+    if (blended > 0) {
+      return {
+        decision: 'keep',
+        reason: `blended score ${blended.toFixed(4)} > 0 (metric=${metricSignal}, simplicity=${simplicitySignal.toFixed(4)}, weight=${simplicityWeight})`,
+        comparison,
+      };
+    }
+
+    // Build regression summary for discard reason
+    const regressions = Object.entries(comparison)
+      .filter(([, v]) => !v.improved)
+      .map(([name, v]) => `${name}: ${v.before} → ${v.after}`);
+
+    return {
+      decision: 'discard',
+      reason: `blended score ${blended.toFixed(4)} <= 0 (metric=${metricSignal}, simplicity=${simplicitySignal.toFixed(4)}, weight=${simplicityWeight})${regressions.length > 0 ? ' — ' + regressions.join(', ') : ''}`,
+      comparison,
+    };
+  }
+
+  // No simplicity blending — original M001 behavior
   if (score > 0) {
     return {
       decision: 'keep',
@@ -416,6 +458,51 @@ export function extractDiffStat(basePath: string): string {
   }
 }
 
+// ─── Target File Validation ─────────────────────────────────────────────────
+
+/**
+ * Validate that the most recent commit only modified files in the declared target list.
+ * Runs `git diff --name-only HEAD~1..HEAD`, checks each changed file against `targetFiles`.
+ * Files not in the target list are violations.
+ *
+ * Returns `{ valid: true, violations: [] }` when all changed files are in scope.
+ * Returns `{ valid: false, violations: [...] }` listing out-of-scope files.
+ * On git failure (e.g. first commit, non-git dir), returns valid (safe default — no false positives).
+ */
+export function validateTargetFiles(
+  targetFiles: string[],
+  basePath: string,
+): { valid: boolean; violations: string[] } {
+  try {
+    const result = spawnSync('git', ['diff', '--name-only', 'HEAD~1..HEAD'], {
+      cwd: basePath,
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
+
+    if (result.status !== 0 || !result.stdout) {
+      // Git failure — safe default: treat as valid (no false rejects)
+      return { valid: true, violations: [] };
+    }
+
+    const changedFiles = result.stdout.split('\n').filter(l => l.trim());
+    if (changedFiles.length === 0) {
+      return { valid: true, violations: [] };
+    }
+
+    const targetSet = new Set(targetFiles);
+    const violations = changedFiles.filter(f => !targetSet.has(f));
+
+    return {
+      valid: violations.length === 0,
+      violations,
+    };
+  } catch {
+    // Safe default on any error
+    return { valid: true, violations: [] };
+  }
+}
+
 // ─── Orchestrator ───────────────────────────────────────────────────────────
 
 /**
@@ -465,6 +552,39 @@ export function runExperimentPostProcess(opts: {
 
   const evalConfig = config.evalConfig;
   const numRuns = evalConfig.runs || 1;
+
+  // Compute simplicity score from numeric diff-stat (before any potential revert)
+  const numericDiffStat = extractNumericDiffStat(basePath);
+  const simplicityScore = computeSimplicityScore(numericDiffStat);
+  const simplicityWeight = config.simplicityWeight ?? 0;
+
+  // Pre-eval target file validation (D043): reject experiments that touch files outside scope
+  if (config.targetFiles && config.targetFiles.length > 0) {
+    const validation = validateTargetFiles(config.targetFiles, basePath);
+    if (!validation.valid) {
+      const violationList = validation.violations.join(', ');
+      const reason = `target file violation: modified files outside target list [${violationList}]`;
+
+      const result: ExperimentResult = {
+        id: expId,
+        description: diffStatDescription,
+        metrics: {},
+        decision: {
+          decision: 'discard',
+          reason,
+          comparison: {},
+        },
+        duration: Date.now() - startTime,
+        cost: 0,
+        diff: commitHash,
+        timestamp: new Date().toISOString(),
+        simplicityScore,
+      };
+      revertExperiment(basePath, expId, commitHash, reason);
+      appendExperimentLog(sliceDir, result);
+      return result;
+    }
+  }
 
   // Run eval command multiple times
   const runMetrics: Record<string, number>[] = [];
@@ -530,8 +650,11 @@ export function runExperimentPostProcess(opts: {
   // Read baseline (best metrics from prior kept experiments)
   const baseline = readBestMetrics(sliceDir);
 
-  // Make keep/discard decision
-  const decision = makeKeepDiscardDecision(aggregated, baseline, evalConfig.metrics);
+  // Make keep/discard decision (with optional simplicity blending)
+  const decision = makeKeepDiscardDecision(aggregated, baseline, evalConfig.metrics, {
+    simplicityWeight,
+    simplicityScore,
+  });
 
   const result: ExperimentResult = {
     id: expId,
@@ -542,6 +665,7 @@ export function runExperimentPostProcess(opts: {
     cost: 0,
     diff: commitHash,
     timestamp: new Date().toISOString(),
+    ...(simplicityWeight > 0 ? { simplicityScore } : {}),
   };
 
   // If discard, revert the experiment commit

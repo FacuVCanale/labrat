@@ -55,7 +55,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Simplicity-Aware Evaluation & Multi-File Safety** `risk:high` `depends:[]`
+- [x] **S01: Simplicity-Aware Evaluation & Multi-File Safety** `risk:high` `depends:[]`
   > After this: Running a campaign with `simplicityWeight` configured shows simplicity scores in the experiment log and prefers simpler code when metrics are close. A multi-file experiment that touches files outside the target list is caught and reverted pre-eval. All proven by contract tests exercising the real eval pipeline functions.
 
 - [ ] **S02: Research Agenda Planning & Execution** `risk:medium` `depends:[S01]`

@@ -14,9 +14,11 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 **M001 (Core Research Loop) complete.** All 15 requirements validated across 7 slices with 480 contract/integration tests passing.
 
+**M002/S01 (Simplicity-Aware Evaluation & Multi-File Safety) complete.** Evaluation pipeline now factors in code simplicity via configurable diff-stat scoring (`simplicityWeight`), and catches out-of-scope file modifications with pre-eval revert. Both features default-off, backward-compatible with M001. 70 new contract tests (39 simplicity + 31 target validation). R017 and R019 validated. 17 total requirements validated.
+
 The full research engine is operational: GSD-2 v2.10.6 rebranded as Labrat with dual-mode state machine (`experimenting` phase alongside development flow, triggered by CAMPAIGN.json). Eval pipeline handles subprocess execution with timeout, JSON metric parsing, multi-run median aggregation, direction-aware weighted composite scoring, and keep/discard decisions with automatic git revert. Research prompts deliver five-section fresh context per experiment. Crash recovery detects and reverts orphan experiment commits on restart. Budget guards (per-experiment and campaign-level) pause before overspending. Live W&B and MLFlow REST integration with circuit breaker resilience. CLI (`labrat start`, `labrat report`) and 7-section terminal morning report operational. Karpathy smoke test harness validates the eval pipeline with deterministic metrics.
 
-Ready for M002 planning (Structured Research & Intelligence) and manual UAT of the full autonomous loop with a real LLM.
+Ready for M002/S02 (Research Agenda Planning & Execution).
 
 ## Architecture / Key Patterns
 

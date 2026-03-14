@@ -189,6 +189,21 @@ export interface GSDState {
 
 // ─── Research / Experiment Types ──────────────────────────────────────────
 
+// ─── Diff-Stat / Simplicity Types ─────────────────────────────────────────
+
+export interface DiffStat {
+  linesAdded: number;
+  linesRemoved: number;
+  filesChanged: number;
+}
+
+export interface SimplicityScore {
+  score: number;        // 0–1 where 1 = no churn (simplest), 0 → high churn
+  linesAdded: number;
+  linesRemoved: number;
+  filesChanged: number;
+}
+
 export type MetricDirection = 'min' | 'max';
 
 export interface MetricDefinition {
@@ -219,6 +234,7 @@ export interface ExperimentResult {
   cost: number;              // USD
   diff: string;              // git diff summary or patch reference
   timestamp?: string;        // ISO 8601 — when the result was recorded
+  simplicityScore?: SimplicityScore;  // optional — present when simplicityWeight > 0 in campaign
 }
 
 export interface CampaignConfig {
@@ -228,6 +244,8 @@ export interface CampaignConfig {
   evalConfig: EvaluationConfig;
   maxExperiments: number;
   budgetPerExperiment: number;  // USD
+  /** Weight for simplicity scoring in keep/discard decisions (0–1). 0 or absent = off. */
+  simplicityWeight?: number;
   /** Optional MLOps platform config for experiment logging (W&B or MLFlow). */
   mlops?: {
     platform: 'wandb' | 'mlflow';

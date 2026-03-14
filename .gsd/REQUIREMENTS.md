@@ -271,6 +271,18 @@ Guidelines:
 - Description: Terminal summary showing experiments run/kept/reverted, best result, improvement trajectory, cost breakdown, time elapsed, top experiments ranked, dashboard link.
 - Validation: S07 — `generateMorningReport()` pure formatter with 7 conditional sections. 46 contract tests. NO_COLOR respected. Missing data sections silently skipped.
 
+### R017 — Simplicity-Aware Keep/Discard
+- Class: differentiator
+- Status: validated
+- Description: Beyond metric improvement, consider code complexity. Prefer simpler solutions over marginal improvements. Configurable weight.
+- Validation: M002/S01 — `computeSimplicityScore` produces 0–1 score from diff stats. `makeKeepDiscardDecision` blends metric and simplicity when `simplicityWeight > 0`. Weight=0/absent identical to M001. 39 contract tests.
+
+### R019 — Multi-File Experiment Scope
+- Class: core-capability
+- Status: validated
+- Description: Experiments can modify multiple files. Scope of modification specified per campaign.
+- Validation: M002/S01 — `validateTargetFiles` checks `git diff --name-only` against `targetFiles[]`. Violations trigger immediate revert without eval. Git failure safely defaults to valid. 31 contract tests.
+
 ## Deferred
 
 ### R016 — Research Agenda Planning
@@ -286,14 +298,14 @@ Guidelines:
 
 ### R017 — Simplicity-Aware Keep/Discard
 - Class: differentiator
-- Status: deferred
+- Status: validated
 - Description: Beyond metric improvement, consider code complexity. Prefer simpler solutions over marginal improvements. Configurable weight.
 - Why it matters: Karpathy's insight — simpler code that performs similarly is often better than complex code with marginal gains.
 - Source: user
-- Primary owning slice: M002
+- Primary owning slice: M002/S01
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Deferred to M002.
+- Validation: M002/S01 — `computeSimplicityScore` produces 0–1 score from diff stats via `1/(1+totalChurn)`. `makeKeepDiscardDecision` blends metric and simplicity scores when `simplicityWeight > 0`, prefers simpler code when metrics are within margin. Weight=0/absent produces identical behavior to M001. 39 contract tests.
+- Notes: Diff-stat based (language-agnostic). Default-off via `simplicityWeight: 0`.
 
 ### R018 — Runtime Steering
 - Class: core-capability
@@ -308,14 +320,14 @@ Guidelines:
 
 ### R019 — Multi-File Experiment Scope
 - Class: core-capability
-- Status: deferred
+- Status: validated
 - Description: Experiments can modify multiple files. Scope of modification specified per campaign.
 - Why it matters: Many research tasks span multiple files.
 - Source: user
-- Primary owning slice: M002
+- Primary owning slice: M002/S01
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Deferred to M002. MVP uses single target file.
+- Validation: M002/S01 — `validateTargetFiles` checks `git diff --name-only HEAD~1..HEAD` against declared `targetFiles[]`. Violations trigger immediate revert without running eval. Git failure safely defaults to valid. 31 contract tests.
+- Notes: Target file list declared in CAMPAIGN.json. Validation is post-commit, pre-eval.
 
 ### R020 — Experiment Dependency/Sequencing
 - Class: core-capability
@@ -416,9 +428,9 @@ Guidelines:
 | R014 | core-capability | validated | M001/S04 | none | S04 |
 | R015 | constraint | validated | M001/S01 | none | S01 |
 | R016 | core-capability | deferred | M002 | none | unmapped |
-| R017 | differentiator | deferred | M002 | none | unmapped |
+| R017 | differentiator | validated | M002/S01 | none | M002/S01 |
 | R018 | core-capability | deferred | M002 | none | unmapped |
-| R019 | core-capability | deferred | M002 | none | unmapped |
+| R019 | core-capability | validated | M002/S01 | none | M002/S01 |
 | R020 | core-capability | deferred | M002 | none | unmapped |
 | R021 | anti-feature | out-of-scope | none | none | n/a |
 | R022 | anti-feature | out-of-scope | none | none | n/a |
@@ -431,5 +443,5 @@ Guidelines:
 
 - Active requirements: 0
 - Mapped to slices: 0
-- Validated: 15
+- Validated: 17
 - Unmapped active requirements: 0
