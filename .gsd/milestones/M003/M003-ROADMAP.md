@@ -50,7 +50,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: Change Detection, Categorization & Sync Report** `risk:medium` `depends:[]`
+- [x] **S01: Change Detection, Categorization & Sync Report** `risk:medium` `depends:[]`
   > After this: running `labrat sync` in the terminal fetches upstream changes and displays a categorized report showing infrastructure vs. development-specific commits, with conflict predictions and persistent sync state
 - [ ] **S02: Selective Apply & Build Verification** `risk:medium` `depends:[S01]`
   > After this: running `labrat sync --apply <commit>` cherry-picks a selected upstream commit, runs `npm run build` + test suite, and reports success or failure — conflicts are detected and reported but not auto-resolved

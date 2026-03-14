@@ -53,10 +53,10 @@ function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportT
 
 export function registerGSDCommand(pi: ExtensionAPI): void {
   pi.registerCommand("gsd", {
-    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|discuss|plan|prefs|doctor|migrate|remote|report (discuss routes to steering during active campaigns)",
+    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|discuss|plan|prefs|doctor|migrate|remote|report|sync (discuss routes to steering during active campaigns)",
 
     getArgumentCompletions: (prefix: string) => {
-      const subcommands = ["next", "auto", "stop", "status", "queue", "discuss", "plan", "prefs", "doctor", "migrate", "remote", "report"];
+      const subcommands = ["next", "auto", "stop", "status", "queue", "discuss", "plan", "prefs", "doctor", "migrate", "remote", "report", "sync"];
       const parts = prefix.trim().split(/\s+/);
 
       if (parts.length <= 1) {
@@ -171,6 +171,11 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
         return;
       }
 
+      if (trimmed === "sync") {
+        await handleSync(ctx);
+        return;
+      }
+
       if (trimmed === "") {
         // Bare /gsd defaults to step mode
         await startAuto(ctx, pi, process.cwd(), false, { step: true });
@@ -178,7 +183,7 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
       }
 
       ctx.ui.notify(
-        `Unknown: /gsd ${trimmed}. Use /gsd, /gsd next, /gsd auto, /gsd stop, /gsd status, /gsd queue, /gsd discuss, /gsd plan, /gsd prefs [global|project|status|wizard|setup], /gsd doctor [audit|fix|heal] [M###/S##], /gsd migrate <path>, /gsd remote [slack|discord|status|disconnect], or /gsd report.`,
+        `Unknown: /gsd ${trimmed}. Use /gsd, /gsd next, /gsd auto, /gsd stop, /gsd status, /gsd queue, /gsd discuss, /gsd plan, /gsd prefs [global|project|status|wizard|setup], /gsd doctor [audit|fix|heal] [M###/S##], /gsd migrate <path>, /gsd remote [slack|discord|status|disconnect], /gsd report, or /gsd sync.`,
         "warning",
       );
     },
@@ -353,6 +358,50 @@ async function handleReport(ctx: ExtensionCommandContext): Promise<void> {
     dashboardUrl,
     useColor: false, // No ANSI in TUI notify
   });
+
+  ctx.ui.notify(report, "info");
+}
+
+// ─── Sync ───────────────────────────────────────────────────────────────────
+
+async function handleSync(ctx: ExtensionCommandContext): Promise<void> {
+  const {
+    fetchUpstreamCommits,
+    readSyncState,
+    writeSyncState,
+    filterNewCommits,
+    getConflictFiles,
+    generateSyncReport,
+  } = await import("./upstream-sync.js");
+
+  const basePath = process.cwd();
+
+  // Fetch upstream refs (best-effort)
+  try {
+    const { execSync } = await import("node:child_process");
+    execSync("git fetch upstream", { cwd: basePath, stdio: ["pipe", "pipe", "pipe"] });
+  } catch {
+    // Non-fatal — use cached refs
+  }
+
+  const state = readSyncState(basePath);
+  const allCommits = fetchUpstreamCommits(basePath);
+
+  for (const commit of allCommits) {
+    commit.conflictFiles = getConflictFiles(basePath, commit.filesChanged);
+  }
+
+  const commits = filterNewCommits(allCommits, state);
+  const report = generateSyncReport(commits, { useColor: false });
+
+  // Persist evaluated commits
+  if (allCommits.length > 0) {
+    const existingSet = new Set(state.evaluatedCommits);
+    for (const c of allCommits) existingSet.add(c.hash);
+    state.evaluatedCommits = [...existingSet];
+    state.lastFetchedUpstream = allCommits[0]!.hash;
+    writeSyncState(basePath, state);
+  }
 
   ctx.ui.notify(report, "info");
 }

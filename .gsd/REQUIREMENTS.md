@@ -22,7 +22,7 @@ Guidelines:
 - Source: user
 - Primary owning slice: M003/S01
 - Supporting slices: M003/S02, M003/S03
-- Validation: unmapped
+- Validation: S01 — upstream-sync.ts fetches, classifies, and reports 532 real upstream commits (467 infra, 14 dev, 51 mixed). Sync state persists across invocations. `labrat sync` CLI operational. 137 contract+integration tests. Remaining: selective apply (S02), LLM adaptation (S03).
 - Notes: Upstream remote already tracked. Cherry-pick selective, not merge. An LLM analyzing code differences can identify and adapt new features.
 
 ### R001 — GSD-2 Base & Upstream Tracking

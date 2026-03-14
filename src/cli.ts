@@ -39,6 +39,9 @@ interface CliFlags {
   maxExperiments: number
   budgetPerExperiment: number
   researchQuestion?: string
+  // Sync flags (for `sync` subcommand)
+  noFetch?: boolean
+  includeEvaluated?: boolean
 }
 
 function parseCliArgs(argv: string[]): CliFlags {
@@ -75,13 +78,18 @@ function parseCliArgs(argv: string[]): CliFlags {
       flags.budgetPerExperiment = parseFloat(args[++i]) || 1.0
     } else if (arg === '--research-question' && i + 1 < args.length) {
       flags.researchQuestion = args[++i]
+    } else if (arg === '--no-fetch') {
+      flags.noFetch = true
+    } else if (arg === '--include-evaluated') {
+      flags.includeEvaluated = true
     } else if (arg === '--version' || arg === '-v') {
       process.stdout.write((process.env.LABRAT_VERSION || '0.0.0') + '\n')
       process.exit(0)
     } else if (arg === '--help' || arg === '-h') {
-      // Defer help to subcommand handler if `start` is the first positional arg
-      if (flags.messages[0] === 'start' || args.some((a, idx) => a === 'start' && idx < i)) {
-        // Will be handled by the start subcommand
+      // Defer help to subcommand handler if `start` or `sync` is the first positional arg
+      if (flags.messages[0] === 'start' || args.some((a, idx) => a === 'start' && idx < i) ||
+          flags.messages[0] === 'sync' || args.some((a, idx) => a === 'sync' && idx < i)) {
+        // Will be handled by the subcommand
         flags.messages.push('--help')
       } else {
       process.stdout.write(`Labrat v${process.env.LABRAT_VERSION || '0.0.0'}\n\n`)
@@ -100,6 +108,7 @@ function parseCliArgs(argv: string[]): CliFlags {
       process.stdout.write('  config                   Re-run the setup wizard\n')
       process.stdout.write('  update                   Update Labrat to the latest version\n')
       process.stdout.write('  report                   Print campaign morning report to stdout\n')
+      process.stdout.write('  sync                     Show categorized upstream changes since fork\n')
       process.stdout.write('  start                    Bootstrap a research campaign and launch interactive mode\n')
       process.stdout.write('\nStart flags:\n')
       process.stdout.write('  --target <path>          Target file(s) to optimize (required, repeatable)\n')
@@ -182,6 +191,74 @@ if (cliFlags.messages[0] === 'report') {
   })
 
   process.stdout.write(report + '\n')
+  process.exit(0)
+}
+
+// `labrat sync` — show categorized upstream changes and exit
+if (cliFlags.messages[0] === 'sync') {
+  // Show sync-specific help
+  if (cliFlags.messages.includes('--help') || cliFlags.messages.includes('-h') ||
+      process.argv.includes('--help') || process.argv.includes('-h')) {
+    process.stdout.write(`Labrat v${process.env.LABRAT_VERSION || '0.0.0'} — sync\n\n`)
+    process.stdout.write('Usage: labrat sync [options]\n\n')
+    process.stdout.write('Show categorized upstream (GSD-2) changes since fork point.\n\n')
+    process.stdout.write('Options:\n')
+    process.stdout.write('  --no-fetch               Skip `git fetch upstream` (use cached refs)\n')
+    process.stdout.write('  --include-evaluated       Re-show already-evaluated commits\n')
+    process.stdout.write('  --help, -h               Print this help and exit\n')
+    process.exit(0)
+  }
+
+  const {
+    fetchUpstreamCommits,
+    readSyncState,
+    writeSyncState,
+    filterNewCommits,
+    getConflictFiles,
+    generateSyncReport,
+  } = await import('./resources/extensions/gsd/upstream-sync.js')
+
+  const basePath = process.cwd()
+
+  // Optionally fetch upstream refs first
+  if (!cliFlags.noFetch) {
+    try {
+      const { execSync } = await import('node:child_process')
+      execSync('git fetch upstream', { cwd: basePath, stdio: ['pipe', 'pipe', 'pipe'] })
+    } catch (err) {
+      process.stderr.write(`[labrat sync] Warning: git fetch upstream failed — using cached refs\n`)
+    }
+  }
+
+  // Read persisted sync state
+  const state = readSyncState(basePath)
+
+  // Fetch all upstream commits
+  const allCommits = fetchUpstreamCommits(basePath)
+
+  // Annotate conflict files
+  for (const commit of allCommits) {
+    commit.conflictFiles = getConflictFiles(basePath, commit.filesChanged)
+  }
+
+  // Filter to new commits only (unless --include-evaluated)
+  const commits = cliFlags.includeEvaluated ? allCommits : filterNewCommits(allCommits, state)
+
+  // Generate and print report
+  const useColor = !!(process.stdout.isTTY && !process.env.NO_COLOR)
+  const report = generateSyncReport(commits, { useColor })
+  process.stdout.write(report + '\n')
+
+  // Persist: mark all fetched commits as evaluated
+  if (allCommits.length > 0) {
+    const newHashes = allCommits.map(c => c.hash)
+    const existingSet = new Set(state.evaluatedCommits)
+    for (const h of newHashes) existingSet.add(h)
+    state.evaluatedCommits = [...existingSet]
+    state.lastFetchedUpstream = allCommits[0]!.hash
+    writeSyncState(basePath, state)
+  }
+
   process.exit(0)
 }
 

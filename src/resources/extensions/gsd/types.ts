@@ -304,3 +304,24 @@ export interface ExperimentContext {
   priorExperiments: ExperimentResult[];
   researchQuestion: string;
 }
+
+// ─── Upstream Sync Types ────────────────────────────────────────────────
+
+export type CommitCategory = 'infrastructure' | 'development-specific' | 'mixed';
+
+export interface UpstreamCommitInfo {
+  hash: string;
+  subject: string;
+  author: string;
+  date: string;
+  filesChanged: string[];
+  category: CommitCategory;
+  conflictFiles: string[];
+}
+
+export interface SyncState {
+  lastFetchedUpstream: string;     // commit hash of last-fetched upstream/main
+  evaluatedCommits: string[];      // hashes already classified
+  appliedCommits: string[];        // hashes that were cherry-picked or merged
+  version: number;                 // schema version for future migrations
+}
