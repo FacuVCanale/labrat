@@ -13,14 +13,15 @@
  *             `generateSyncReport()` output for categorized commit listing.
  */
 
-import { existsSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { execSync } from 'node:child_process';
 
 import { runGit } from './git-service.js';
-import type { CommitCategory, UpstreamCommitInfo, SyncState } from './types.js';
+import type { CommitCategory, UpstreamCommitInfo, SyncState, ApplyResult, VerifyResult, ConflictContext } from './types.js';
 
 // Re-export types for consumer convenience
-export type { CommitCategory, UpstreamCommitInfo, SyncState };
+export type { CommitCategory, UpstreamCommitInfo, SyncState, ApplyResult, VerifyResult, ConflictContext };
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -367,7 +368,6 @@ export function writeSyncState(basePath: string, state: SyncState): void {
   // Ensure directory exists
   const dir = dirname(filePath);
   if (!existsSync(dir)) {
-    const { mkdirSync } = require('node:fs') as typeof import('node:fs');
     mkdirSync(dir, { recursive: true });
   }
 
@@ -486,4 +486,295 @@ export function generateSyncReport(
   lines.push(`  Infrastructure: ${infra.length}  Mixed: ${mixed.length}  Dev-specific: ${devSpecific.length}  Total: ${commits.length}`);
 
   return lines.join('\n');
+}
+
+// ─── Verify After Apply ──────────────────────────────────────────────────────
+
+/** Max output chars stored in VerifyResult to avoid huge payloads. */
+const MAX_OUTPUT_LENGTH = 8000;
+
+function truncateOutput(output: string): string {
+  if (output.length <= MAX_OUTPUT_LENGTH) return output;
+  return output.slice(0, MAX_OUTPUT_LENGTH) + '\n... (truncated)';
+}
+
+/**
+ * Run build + test verification after a cherry-pick.
+ *
+ * - `npm run build` with 120s timeout, 10MB maxBuffer
+ * - `npm test` with 300s timeout (only if build passes)
+ * - Missing scripts treated as pass with skip note
+ *
+ * Returns structured VerifyResult — never throws.
+ */
+export function verifyAfterApply(basePath: string): VerifyResult {
+  // Check if package.json exists with scripts
+  let hasPackageJson = false;
+  let hasBuildScript = false;
+  let hasTestScript = false;
+  try {
+    const pkgPath = join(basePath, 'package.json');
+    if (existsSync(pkgPath)) {
+      hasPackageJson = true;
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+      hasBuildScript = !!(pkg.scripts && pkg.scripts.build);
+      hasTestScript = !!(pkg.scripts && pkg.scripts.test);
+    }
+  } catch {
+    // No package.json or unparseable — treat build/test as skip
+  }
+
+  let buildPassed = true;
+  let testsPassed = true;
+  let buildOutput: string | undefined;
+  let testOutput: string | undefined;
+
+  // Run build
+  if (hasBuildScript) {
+    try {
+      const result = execSync('npm run build', {
+        cwd: basePath,
+        encoding: 'utf-8',
+        timeout: 120_000,
+        maxBuffer: 10 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      buildOutput = truncateOutput(result);
+    } catch (err: unknown) {
+      buildPassed = false;
+      const msg = err instanceof Error ? (err as any).stderr || (err as any).stdout || err.message : String(err);
+      buildOutput = truncateOutput(String(msg));
+      return { buildPassed, testsPassed: false, buildOutput, error: 'Build failed' };
+    }
+  } else {
+    buildOutput = hasPackageJson ? 'No build script found — skipped' : 'No package.json — skipped';
+  }
+
+  // Run tests (only if build passed)
+  if (hasTestScript) {
+    try {
+      const result = execSync('npm test', {
+        cwd: basePath,
+        encoding: 'utf-8',
+        timeout: 300_000,
+        maxBuffer: 10 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      testOutput = truncateOutput(result);
+    } catch (err: unknown) {
+      testsPassed = false;
+      const msg = err instanceof Error ? (err as any).stderr || (err as any).stdout || err.message : String(err);
+      testOutput = truncateOutput(String(msg));
+      return { buildPassed, testsPassed, buildOutput, testOutput, error: 'Tests failed' };
+    }
+  } else {
+    testOutput = hasPackageJson ? 'No test script found — skipped' : 'No package.json — skipped';
+  }
+
+  return { buildPassed, testsPassed, buildOutput, testOutput };
+}
+
+// ─── Get Conflict Context ────────────────────────────────────────────────────
+
+/**
+ * Extract structured conflict context from a cherry-pick conflict state.
+ *
+ * MUST be called BEFORE `git cherry-pick --abort` — the merge markers
+ * exist in the working tree only while the conflict is active.
+ *
+ * For each unmerged file:
+ * - `withMarkers`: raw file content with <<<<<<< / ======= / >>>>>>> markers
+ * - `labratVersion`: Labrat's pre-cherry-pick version (from HEAD before cherry-pick, i.e. MERGE_HEAD's parent)
+ * - `upstreamPatch`: the upstream commit's diff for this file
+ */
+export function getConflictContext(basePath: string, hash: string): ConflictContext {
+  // Get subject of the commit
+  const subject = runGit(basePath, ['log', '-1', '--format=%s', hash], { allowFailure: true }) || '';
+
+  // Get list of unmerged (conflicting) files
+  const unmergedRaw = runGit(basePath, ['diff', '--name-only', '--diff-filter=U'], { allowFailure: true });
+  const unmergedFiles = unmergedRaw ? unmergedRaw.split('\n').filter(Boolean) : [];
+
+  const conflictingFiles = unmergedFiles.map(filePath => {
+    // Read file with merge markers (current working tree state)
+    let withMarkers = '';
+    try {
+      withMarkers = readFileSync(join(basePath, filePath), 'utf-8');
+    } catch {
+      withMarkers = '(unable to read file)';
+    }
+
+    // Get Labrat's version before the cherry-pick (HEAD's version)
+    const labratVersion = runGit(basePath, ['show', `HEAD:${filePath}`], { allowFailure: true }) || '';
+
+    // Get the upstream patch for this file
+    const upstreamPatch = runGit(basePath, ['diff', `${hash}~1`, hash, '--', filePath], { allowFailure: true }) || '';
+
+    return { path: filePath, withMarkers, labratVersion, upstreamPatch };
+  });
+
+  return { hash, subject, conflictingFiles };
+}
+
+// ─── Apply Upstream Commit ───────────────────────────────────────────────────
+
+/**
+ * Cherry-pick an upstream commit into the working repo.
+ *
+ * Flow:
+ * 1. Validate hash not already applied
+ * 2. Check clean working tree
+ * 3. `git cherry-pick --no-commit <hash>`
+ * 4. If clean: commit → verify → if verify fails, revert
+ * 5. If conflict: extract context → abort → return conflict result
+ *
+ * Returns structured ApplyResult — never throws (D055).
+ *
+ * Diagnostic: `readSyncState(basePath).appliedCommits` shows applied hashes.
+ */
+export function applyUpstreamCommit(basePath: string, hash: string): ApplyResult {
+  try {
+    // Check if already applied
+    const state = readSyncState(basePath);
+    if (state.appliedCommits.includes(hash)) {
+      return {
+        success: false,
+        conflicted: false,
+        error: `Commit ${hash} has already been applied`,
+      };
+    }
+
+    // Check clean working tree
+    const status = runGit(basePath, ['status', '--porcelain'], { allowFailure: true });
+    if (status && status.trim() !== '') {
+      return {
+        success: false,
+        conflicted: false,
+        error: 'Working tree is not clean — commit or stash changes first',
+      };
+    }
+
+    // Get commit subject for the commit message
+    const subject = runGit(basePath, ['log', '-1', '--format=%s', hash], { allowFailure: true }) || 'upstream change';
+    const shortHash = hash.slice(0, 8);
+
+    // Attempt cherry-pick --no-commit
+    let cherryPickFailed = false;
+    try {
+      execSync(`git cherry-pick --no-commit ${hash}`, {
+        cwd: basePath,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch {
+      cherryPickFailed = true;
+    }
+
+    if (cherryPickFailed) {
+      // Check if there are actual unmerged files (conflict) vs other error
+      const unmerged = runGit(basePath, ['diff', '--name-only', '--diff-filter=U'], { allowFailure: true });
+
+      if (unmerged && unmerged.trim() !== '') {
+        // Conflict path: extract context BEFORE abort
+        const conflictContext = getConflictContext(basePath, hash);
+
+        // Abort the cherry-pick to leave repo clean
+        try {
+          execSync('git cherry-pick --abort', {
+            cwd: basePath,
+            encoding: 'utf-8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+        } catch {
+          // If abort fails, try reset as fallback
+          runGit(basePath, ['reset', '--hard', 'HEAD'], { allowFailure: true });
+        }
+
+        return {
+          success: false,
+          conflicted: true,
+          conflictContext,
+        };
+      } else {
+        // Non-conflict failure — abort and return error
+        try {
+          execSync('git cherry-pick --abort', {
+            cwd: basePath,
+            encoding: 'utf-8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+        } catch {
+          runGit(basePath, ['reset', '--hard', 'HEAD'], { allowFailure: true });
+        }
+
+        return {
+          success: false,
+          conflicted: false,
+          error: `Cherry-pick of ${hash} failed without conflicts`,
+        };
+      }
+    }
+
+    // Clean cherry-pick path: commit the staged changes
+    try {
+      runGit(basePath, ['commit', '-F', '-'], { input: `upstream(${shortHash}): ${subject}` });
+    } catch (commitErr) {
+      // If commit fails (e.g., empty commit), reset and return error
+      runGit(basePath, ['reset', '--hard', 'HEAD'], { allowFailure: true });
+      return {
+        success: false,
+        conflicted: false,
+        error: `Failed to commit cherry-picked changes: ${commitErr instanceof Error ? commitErr.message : String(commitErr)}`,
+      };
+    }
+
+    // Verify after apply
+    const verifyResult = verifyAfterApply(basePath);
+
+    if (!verifyResult.buildPassed || !verifyResult.testsPassed) {
+      // Verify failed: revert the committed change
+      try {
+        runGit(basePath, ['revert', '--no-commit', 'HEAD']);
+        runGit(basePath, ['commit', '-F', '-'], { input: `revert upstream(${shortHash}): verify failed` });
+      } catch {
+        // If revert fails, force reset to before the cherry-pick
+        runGit(basePath, ['reset', '--hard', 'HEAD~1'], { allowFailure: true });
+      }
+
+      return {
+        success: false,
+        conflicted: false,
+        verifyResult,
+        error: 'Verification failed after cherry-pick — change has been reverted',
+      };
+    }
+
+    // Success: update state
+    state.appliedCommits.push(hash);
+    writeSyncState(basePath, state);
+
+    return {
+      success: true,
+      conflicted: false,
+      verifyResult,
+    };
+  } catch (err) {
+    // Catch-all: ensure we never throw
+    // Try to abort any in-progress cherry-pick
+    try {
+      execSync('git cherry-pick --abort', {
+        cwd: basePath,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch {
+      // Ignore — may not be in cherry-pick state
+    }
+
+    return {
+      success: false,
+      conflicted: false,
+      error: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 }

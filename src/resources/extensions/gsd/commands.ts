@@ -171,8 +171,8 @@ export function registerGSDCommand(pi: ExtensionAPI): void {
         return;
       }
 
-      if (trimmed === "sync") {
-        await handleSync(ctx);
+      if (trimmed === "sync" || trimmed.startsWith("sync ")) {
+        await handleSync(ctx, trimmed);
         return;
       }
 
@@ -364,7 +364,36 @@ async function handleReport(ctx: ExtensionCommandContext): Promise<void> {
 
 // ─── Sync ───────────────────────────────────────────────────────────────────
 
-async function handleSync(ctx: ExtensionCommandContext): Promise<void> {
+async function handleSync(ctx: ExtensionCommandContext, rawCommand = "sync"): Promise<void> {
+  // Parse --apply <hash> from the command string
+  const argParts = rawCommand.replace(/^sync\s*/, "").trim().split(/\s+/).filter(Boolean);
+  const applyIdx = argParts.indexOf("--apply");
+  const applyHash = applyIdx !== -1 && applyIdx + 1 < argParts.length ? argParts[applyIdx + 1] : undefined;
+
+  if (applyHash) {
+    const { applyUpstreamCommit } = await import("./upstream-sync.js");
+    const basePath = process.cwd();
+    const result = applyUpstreamCommit(basePath, applyHash);
+
+    if (result.success) {
+      let msg = `✓ Applied upstream commit ${applyHash}`;
+      if (result.verifyResult) {
+        msg += `\n  Build: ${result.verifyResult.buildPassed ? "passed" : "FAILED"}`;
+        msg += `\n  Tests: ${result.verifyResult.testsPassed ? "passed" : "FAILED"}`;
+      }
+      ctx.ui.notify(msg, "info");
+    } else if (result.conflicted && result.conflictContext) {
+      const files = result.conflictContext.conflictingFiles.map(f => `  - ${f.path}`).join("\n");
+      ctx.ui.notify(
+        `✗ Conflict applying ${applyHash}: ${result.conflictContext.subject}\nConflicting files:\n${files}\nCherry-pick aborted — repo is clean.`,
+        "warning",
+      );
+    } else {
+      ctx.ui.notify(`✗ Failed to apply ${applyHash}: ${result.error || "unknown error"}`, "warning");
+    }
+    return;
+  }
+
   const {
     fetchUpstreamCommits,
     readSyncState,

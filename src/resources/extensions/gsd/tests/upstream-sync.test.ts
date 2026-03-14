@@ -9,7 +9,7 @@
  * - Idempotent evaluation filtering
  */
 
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
@@ -25,9 +25,12 @@ import {
   writeSyncState,
   filterNewCommits,
   generateSyncReport,
+  applyUpstreamCommit,
+  verifyAfterApply,
+  getConflictContext,
 } from '../upstream-sync.ts';
 
-import type { UpstreamCommitInfo, SyncState } from '../types.ts';
+import type { UpstreamCommitInfo, SyncState, ApplyResult } from '../types.ts';
 
 let passed = 0;
 let failed = 0;
@@ -578,6 +581,296 @@ async function main(): Promise<void> {
         assert(retryCommit.filesChanged.some(f => f.includes('retry.ts')), 'fetch: retry commit has retry.ts');
         assertEq(retryCommit.category, 'infrastructure', 'fetch: retry commit → infrastructure');
       }
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(upstream, { recursive: true, force: true });
+    }
+  }
+
+  // ═══ S02: Apply, Verify, Conflict Context ═══════════════════════════════
+
+  console.log('\n=== S02: applyUpstreamCommit — clean cherry-pick ===');
+
+  // Clean cherry-pick: add a packages/ file in upstream, cherry-pick → success
+  {
+    const { repo, upstream } = setupRepoWithUpstream();
+    try {
+      // Add a file in upstream
+      mkdirSync(join(upstream, 'packages', 'core'), { recursive: true });
+      writeFileSync(join(upstream, 'packages', 'core', 'newutil.ts'), 'export const newutil = true;\n');
+      run('git add .', upstream);
+      run("git commit -m 'feat: add newutil'", upstream);
+      const upstreamHash = run('git rev-parse HEAD', upstream);
+
+      // Fetch in work repo
+      run('git fetch upstream', repo);
+
+      // Apply
+      const result = applyUpstreamCommit(repo, upstreamHash);
+
+      assert(result.success === true, 'clean apply: success is true');
+      assert(result.conflicted === false, 'clean apply: conflicted is false');
+      assert(result.error === undefined, 'clean apply: no error');
+
+      // File should exist after apply
+      const fileExists = existsSync(join(repo, 'packages', 'core', 'newutil.ts'));
+      assert(fileExists, 'clean apply: newutil.ts exists in work repo');
+
+      // appliedCommits should be updated
+      const state = readSyncState(repo);
+      assert(state.appliedCommits.includes(upstreamHash), 'clean apply: hash in appliedCommits');
+
+      // Verify result should be present
+      assert(result.verifyResult !== undefined, 'clean apply: verifyResult present');
+      assert(result.verifyResult!.buildPassed === true, 'clean apply: buildPassed true (no package.json)');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(upstream, { recursive: true, force: true });
+    }
+  }
+
+  console.log('\n=== S02: applyUpstreamCommit — conflict path ===');
+
+  // Conflict path: modify same file in both repos → conflicted result with context
+  {
+    const { repo, upstream } = setupRepoWithUpstream();
+    try {
+      // Modify README.md in labrat (work repo)
+      writeFileSync(join(repo, 'README.md'), '# Modified by Labrat\nLabrat content here\n');
+      run('git add .', repo);
+      run("git commit -m 'labrat: modify README'", repo);
+
+      // Modify same file in upstream (conflicting change)
+      writeFileSync(join(upstream, 'README.md'), '# Modified by Upstream\nUpstream content here\n');
+      run('git add .', upstream);
+      run("git commit -m 'upstream: modify README'", upstream);
+      const upstreamHash = run('git rev-parse HEAD', upstream);
+
+      // Fetch in work repo
+      run('git fetch upstream', repo);
+
+      // Apply — should conflict
+      const result = applyUpstreamCommit(repo, upstreamHash);
+
+      assert(result.success === false, 'conflict apply: success is false');
+      assert(result.conflicted === true, 'conflict apply: conflicted is true');
+      assert(result.conflictContext !== undefined, 'conflict apply: conflictContext present');
+
+      if (result.conflictContext) {
+        assert(result.conflictContext.hash === upstreamHash, 'conflict apply: context has correct hash');
+        assert(result.conflictContext.conflictingFiles.length > 0, 'conflict apply: has conflicting files');
+
+        const readmeConflict = result.conflictContext.conflictingFiles.find(f => f.path === 'README.md');
+        assert(readmeConflict !== undefined, 'conflict apply: README.md in conflict files');
+        if (readmeConflict) {
+          assert(readmeConflict.withMarkers.includes('<<<<<<<'), 'conflict apply: withMarkers has <<<<<<< markers');
+          assert(readmeConflict.withMarkers.includes('>>>>>>>'), 'conflict apply: withMarkers has >>>>>>> markers');
+          assert(readmeConflict.labratVersion.includes('Labrat'), 'conflict apply: labratVersion has Labrat content');
+          assert(readmeConflict.upstreamPatch.length > 0, 'conflict apply: upstreamPatch is non-empty');
+        }
+      }
+
+      // Repo should be clean after abort
+      const status = run('git status --porcelain', repo);
+      assertEq(status, '', 'conflict apply: repo is clean after abort');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(upstream, { recursive: true, force: true });
+    }
+  }
+
+  console.log('\n=== S02: applyUpstreamCommit — already-applied rejection ===');
+
+  // Already-applied rejection: apply same hash twice → error without side effects
+  {
+    const { repo, upstream } = setupRepoWithUpstream();
+    try {
+      // Add a file in upstream
+      mkdirSync(join(upstream, 'packages', 'core'), { recursive: true });
+      writeFileSync(join(upstream, 'packages', 'core', 'feature.ts'), 'export const feature = 1;\n');
+      run('git add .', upstream);
+      run("git commit -m 'feat: add feature'", upstream);
+      const upstreamHash = run('git rev-parse HEAD', upstream);
+
+      // Fetch and apply first time
+      run('git fetch upstream', repo);
+      const firstResult = applyUpstreamCommit(repo, upstreamHash);
+      assert(firstResult.success === true, 'already-applied: first apply succeeds');
+
+      // Get commit count before second attempt
+      const commitCountBefore = run('git rev-list --count HEAD', repo);
+
+      // Apply same hash again
+      const secondResult = applyUpstreamCommit(repo, upstreamHash);
+      assert(secondResult.success === false, 'already-applied: second apply fails');
+      assert(secondResult.conflicted === false, 'already-applied: not a conflict');
+      assert(secondResult.error !== undefined, 'already-applied: error message present');
+      assert(secondResult.error!.includes('already been applied'), 'already-applied: error says already applied');
+
+      // No new commits should have been created
+      const commitCountAfter = run('git rev-list --count HEAD', repo);
+      assertEq(commitCountAfter, commitCountBefore, 'already-applied: no new commits');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(upstream, { recursive: true, force: true });
+    }
+  }
+
+  console.log('\n=== S02: verifyAfterApply ===');
+
+  // Verify returns appropriate result for repos without package.json
+  {
+    const repo = mkdtempSync(join(tmpdir(), 'gsd-verify-'));
+    run('git init -b main', repo);
+    run('git config user.email test@example.com', repo);
+    run('git config user.name Test', repo);
+    writeFileSync(join(repo, 'file.txt'), 'hello\n');
+    run('git add .', repo);
+    run("git commit -m 'initial'", repo);
+    try {
+      const result = verifyAfterApply(repo);
+      assert(result.buildPassed === true, 'verify no-pkg: buildPassed true');
+      assert(result.testsPassed === true, 'verify no-pkg: testsPassed true');
+      assert(result.buildOutput !== undefined, 'verify no-pkg: buildOutput present');
+      assert(result.buildOutput!.includes('skipped'), 'verify no-pkg: buildOutput says skipped');
+      assert(result.error === undefined, 'verify no-pkg: no error');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  }
+
+  // Verify with package.json but no scripts
+  {
+    const repo = mkdtempSync(join(tmpdir(), 'gsd-verify-noscripts-'));
+    run('git init -b main', repo);
+    run('git config user.email test@example.com', repo);
+    run('git config user.name Test', repo);
+    writeFileSync(join(repo, 'package.json'), JSON.stringify({ name: 'test', version: '1.0.0' }));
+    run('git add .', repo);
+    run("git commit -m 'initial'", repo);
+    try {
+      const result = verifyAfterApply(repo);
+      assert(result.buildPassed === true, 'verify no-scripts: buildPassed true');
+      assert(result.testsPassed === true, 'verify no-scripts: testsPassed true');
+      assert(result.buildOutput!.includes('No build script'), 'verify no-scripts: build output mentions no script');
+      assert(result.testOutput!.includes('No test script'), 'verify no-scripts: test output mentions no script');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  }
+
+  console.log('\n=== S02: state persistence after apply ===');
+
+  // State persistence: after successful apply, readSyncState shows hash in appliedCommits
+  {
+    const { repo, upstream } = setupRepoWithUpstream();
+    try {
+      mkdirSync(join(upstream, 'packages'), { recursive: true });
+      writeFileSync(join(upstream, 'packages', 'state-test.ts'), 'export const x = 1;\n');
+      run('git add .', upstream);
+      run("git commit -m 'feat: state test'", upstream);
+      const hash = run('git rev-parse HEAD', upstream);
+
+      run('git fetch upstream', repo);
+      applyUpstreamCommit(repo, hash);
+
+      // Read state from disk directly
+      const stateOnDisk = readSyncState(repo);
+      assert(stateOnDisk.appliedCommits.includes(hash), 'state persistence: hash in appliedCommits on disk');
+      assertEq(stateOnDisk.version, 1, 'state persistence: version is 1');
+
+      // State file should actually exist
+      assert(existsSync(join(repo, '.gsd', 'UPSTREAM-SYNC.json')), 'state persistence: UPSTREAM-SYNC.json exists');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(upstream, { recursive: true, force: true });
+    }
+  }
+
+  console.log('\n=== S02: getConflictContext structure ===');
+
+  // getConflictContext: verify structure has withMarkers, labratVersion, upstreamPatch fields
+  {
+    const { repo, upstream } = setupRepoWithUpstream();
+    try {
+      // Create a conflict scenario
+      writeFileSync(join(repo, 'README.md'), '# Labrat version\nLocal only content\n');
+      run('git add .', repo);
+      run("git commit -m 'labrat: edit README'", repo);
+
+      writeFileSync(join(upstream, 'README.md'), '# Upstream version\nRemote only content\n');
+      run('git add .', upstream);
+      run("git commit -m 'upstream: edit README'", upstream);
+      const hash = run('git rev-parse HEAD', upstream);
+
+      run('git fetch upstream', repo);
+
+      // Manually trigger cherry-pick conflict to test getConflictContext directly
+      let hadConflict = false;
+      try {
+        execSync(`git cherry-pick --no-commit ${hash}`, {
+          cwd: repo,
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+      } catch {
+        hadConflict = true;
+      }
+
+      assert(hadConflict, 'conflict context: cherry-pick produced conflict');
+
+      if (hadConflict) {
+        const ctx = getConflictContext(repo, hash);
+
+        assertEq(ctx.hash, hash, 'conflict context: hash matches');
+        assert(ctx.subject.includes('upstream'), 'conflict context: subject from upstream commit');
+        assert(ctx.conflictingFiles.length > 0, 'conflict context: has conflicting files');
+
+        const readme = ctx.conflictingFiles.find(f => f.path === 'README.md');
+        assert(readme !== undefined, 'conflict context: README.md found');
+        if (readme) {
+          assert(typeof readme.withMarkers === 'string', 'conflict context: withMarkers is string');
+          assert(readme.withMarkers.includes('<<<<<<<'), 'conflict context: withMarkers has conflict markers');
+          assert(typeof readme.labratVersion === 'string', 'conflict context: labratVersion is string');
+          assert(readme.labratVersion.includes('Labrat'), 'conflict context: labratVersion has Labrat content');
+          assert(typeof readme.upstreamPatch === 'string', 'conflict context: upstreamPatch is string');
+          assert(readme.upstreamPatch.length > 0, 'conflict context: upstreamPatch non-empty');
+        }
+
+        // Clean up the cherry-pick state
+        try {
+          execSync('git cherry-pick --abort', { cwd: repo, stdio: ['ignore', 'pipe', 'pipe'] });
+        } catch {
+          execSync('git reset --hard HEAD', { cwd: repo, stdio: ['ignore', 'pipe', 'pipe'] });
+        }
+      }
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(upstream, { recursive: true, force: true });
+    }
+  }
+
+  console.log('\n=== S02: dirty working tree guard ===');
+
+  // Dirty tree guard: apply with uncommitted changes → error
+  {
+    const { repo, upstream } = setupRepoWithUpstream();
+    try {
+      mkdirSync(join(upstream, 'packages'), { recursive: true });
+      writeFileSync(join(upstream, 'packages', 'dirty-test.ts'), 'export const d = 1;\n');
+      run('git add .', upstream);
+      run("git commit -m 'feat: dirty test'", upstream);
+      const hash = run('git rev-parse HEAD', upstream);
+
+      run('git fetch upstream', repo);
+
+      // Create dirty state in work repo
+      writeFileSync(join(repo, 'dirty-file.txt'), 'uncommitted\n');
+
+      const result = applyUpstreamCommit(repo, hash);
+      assert(result.success === false, 'dirty tree: success is false');
+      assert(result.error !== undefined, 'dirty tree: error present');
+      assert(result.error!.includes('not clean'), 'dirty tree: error mentions not clean');
     } finally {
       rmSync(repo, { recursive: true, force: true });
       rmSync(upstream, { recursive: true, force: true });

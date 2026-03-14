@@ -325,3 +325,32 @@ export interface SyncState {
   appliedCommits: string[];        // hashes that were cherry-picked or merged
   version: number;                 // schema version for future migrations
 }
+
+export interface VerifyResult {
+  buildPassed: boolean;
+  testsPassed: boolean;
+  buildOutput?: string;
+  testOutput?: string;
+  error?: string;
+}
+
+export interface ConflictFileInfo {
+  path: string;
+  withMarkers: string;             // file content with merge markers (<<<, ===, >>>)
+  labratVersion: string;           // Labrat's pre-cherry-pick version of the file
+  upstreamPatch: string;           // upstream's diff for this file
+}
+
+export interface ConflictContext {
+  hash: string;
+  subject: string;
+  conflictingFiles: ConflictFileInfo[];
+}
+
+export interface ApplyResult {
+  success: boolean;
+  conflicted: boolean;
+  conflictContext?: ConflictContext;
+  verifyResult?: VerifyResult;
+  error?: string;
+}
