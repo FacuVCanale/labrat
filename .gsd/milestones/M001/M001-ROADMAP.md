@@ -58,7 +58,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Research Types & State Machine** `risk:high` `depends:[S01]`
   > After this: state machine recognizes research flow — phases are theories, failed experiments advance instead of blocking, campaign/phase/experiment hierarchy works with the existing Milestone/Slice/Task structure.
 
-- [ ] **S03: Eval Runner & Keep/Discard Engine** `risk:high` `depends:[S02]`
+- [x] **S03: Eval Runner & Keep/Discard Engine** `risk:high` `depends:[S02]`
   > After this: run a user-defined eval command, parse JSON metrics from stdout, compare against baseline with weighted composite scoring, keep (commit) if improved or discard (revert) if not.
 
 - [ ] **S04: Research Prompts & Fresh Context** `risk:medium` `depends:[S02]`

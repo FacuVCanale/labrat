@@ -16,7 +16,7 @@ import type {
   ExtensionCommandContext,
 } from "@gsd/pi-coding-agent";
 
-import { deriveState } from "./state.js";
+import { deriveState, countExperiments } from "./state.js";
 import type { GSDState } from "./types.js";
 import { loadFile, parseContinue, parsePlan, parseRoadmap, parseSummary, extractUatType, inlinePriorMilestoneSummary, getManifestStatus } from "./files.js";
 export { inlinePriorMilestoneSummary };
@@ -71,6 +71,7 @@ import {
 } from "./worktree.ts";
 import { GitServiceImpl } from "./git-service.ts";
 import { getPriorSliceCompletionBlocker } from "./dispatch-guard.ts";
+import { runExperimentPostProcess } from "./eval-runner.js";
 import type { GitPreferences } from "./git-service.ts";
 import { truncateToWidth, visibleWidth } from "@gsd/pi-tui";
 import { makeUI, GLYPH, INDENT } from "../shared/ui.js";
@@ -546,6 +547,29 @@ export async function handleAgentEnd(
       }
     } catch {
       // Non-fatal
+    }
+
+    // Experiment post-processing: run eval, compare metrics, keep or discard.
+    if (currentUnit.type === "run-experiment") {
+      try {
+        const sliceId = currentUnit.id.split("/").slice(0, 2).join("/"); // M001/S01
+        const sliceDir = join(basePath, ".gsd", "milestones", sliceId.split("/")[0], "slices", sliceId.split("/")[1]);
+        const commitHash = execSync("git rev-parse HEAD", { cwd: basePath }).toString().trim();
+        const experimentNumber = countExperiments(sliceDir) + 1;
+
+        const result = runExperimentPostProcess({ sliceDir, basePath, experimentNumber, commitHash });
+        const verb = result.decision.decision === "keep" ? "✓ Kept" : "✗ Discarded";
+        const metricsSummary = Object.entries(result.metrics)
+          .map(([k, v]) => `${k}=${typeof v === "number" ? v.toFixed(4) : v}`)
+          .join(", ");
+        ctx.ui.notify(
+          `Experiment ${result.id}: ${verb} — ${result.decision.reason}${metricsSummary ? ` (${metricsSummary})` : ""}`,
+          result.decision.decision === "keep" ? "info" : "warn",
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ctx.ui.notify(`Experiment eval failed (non-fatal): ${msg}`, "error");
+      }
     }
 
     // Post-hook: fix mechanical bookkeeping the LLM may have skipped.

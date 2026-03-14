@@ -38,24 +38,24 @@ Guidelines:
 
 ### R003 — Experiment Loop
 - Class: primary-user-loop
-- Status: active
+- Status: validated
 - Description: Autonomous loop: modify target file(s) → commit → run eval → parse metrics → compare against best → keep if improved, revert if not → repeat.
 - Why it matters: This is the core product loop. Everything else supports it.
 - Source: user
 - Primary owning slice: M001/S03
 - Supporting slices: M001/S02, M001/S04
-- Validation: unmapped
+- Validation: S03 — Full eval pipeline (subprocess, parsing, aggregation, scoring, keep/discard with git revert) proven by 66 contract tests. handleAgentEnd wiring triggers post-processing for run-experiment units. End-to-end loop integration deferred to S07 smoke test.
 - Notes: Target files specified by user at campaign start. Eval script and infrastructure are immutable.
 
 ### R004 — Multi-Metric Evaluation Framework
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: User-defined eval command produces JSON to stdout with named metrics. Configurable directions (min/max per metric). Weighted composite scoring. Hard timeout per eval (default 5 min).
 - Why it matters: Real research has multiple metrics. Single-metric is too narrow for general use.
 - Source: user
 - Primary owning slice: M001/S03
 - Supporting slices: none
-- Validation: unmapped
+- Validation: S03 — Direction-aware (min/max) weighted composite scoring, weight normalization, zero baseline guard, multi-run median aggregation, timeout enforcement, JSON parsing from mixed stdout — all proven by 66 contract tests.
 - Notes: Non-deterministic eval supported via `--runs N` flag (run N times, use median). Default N=1.
 
 ### R005 — Fresh Context Per Experiment
@@ -199,6 +199,18 @@ Guidelines:
 - Description: Branch per campaign. Each experiment is an atomic commit. Failed experiments revert cleanly. Improvements accumulate on the branch.
 - Validation: S02 — commitExperiment produces labeled atomic commits, revertExperiment produces clean reverts, idempotent on repeated calls, tree hash matches pre-experiment state. 14 integration tests.
 
+### R003 — Experiment Loop
+- Class: primary-user-loop
+- Status: validated
+- Description: Autonomous loop: modify target file(s) → commit → run eval → parse metrics → compare against best → keep if improved, revert if not → repeat.
+- Validation: S03 — Full eval pipeline (subprocess, parsing, aggregation, scoring, keep/discard with git revert) proven by 66 contract tests. handleAgentEnd wiring triggers post-processing for run-experiment units.
+
+### R004 — Multi-Metric Evaluation Framework
+- Class: core-capability
+- Status: validated
+- Description: User-defined eval command produces JSON to stdout with named metrics. Configurable directions (min/max per metric). Weighted composite scoring. Hard timeout per eval (default 5 min).
+- Validation: S03 — Direction-aware weighted composite scoring, weight normalization, zero baseline guard, multi-run median aggregation, timeout enforcement, JSON parsing from mixed stdout — all proven by 66 contract tests.
+
 ### R015 — Full LLM Provider Support
 - Class: constraint
 - Status: validated
@@ -336,8 +348,8 @@ Guidelines:
 |---|---|---|---|---|---|
 | R001 | constraint | validated | M001/S01 | none | S01 |
 | R002 | core-capability | validated | M001/S02 | M001/S04 | S02 |
-| R003 | primary-user-loop | active | M001/S03 | M001/S02, M001/S04 | unmapped |
-| R004 | core-capability | active | M001/S03 | none | unmapped |
+| R003 | primary-user-loop | validated | M001/S03 | M001/S02, M001/S04 | S03 |
+| R004 | core-capability | validated | M001/S03 | none | S03 |
 | R005 | core-capability | active | M001/S04 | M001/S02 | unmapped |
 | R006 | continuity | validated | M001/S02 | M001/S03 | S02 |
 | R007 | failure-visibility | active | M001/S05 | none | unmapped |
@@ -363,7 +375,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 11
-- Mapped to slices: 11
-- Validated: 4
+- Active requirements: 9
+- Mapped to slices: 9
+- Validated: 6
 - Unmapped active requirements: 0
