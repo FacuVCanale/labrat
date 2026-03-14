@@ -53,7 +53,7 @@ function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportT
 
 export function registerGSDCommand(pi: ExtensionAPI): void {
   pi.registerCommand("gsd", {
-    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|plan|prefs|doctor|migrate|remote|report",
+    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|discuss|plan|prefs|doctor|migrate|remote|report (discuss routes to steering during active campaigns)",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = ["next", "auto", "stop", "status", "queue", "discuss", "plan", "prefs", "doctor", "migrate", "remote", "report"];

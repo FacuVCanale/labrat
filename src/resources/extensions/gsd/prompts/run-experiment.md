@@ -13,6 +13,7 @@ You are executing GSD auto-mode.
 **Max Experiments:** {{maxExperiments}} | **Budget per Experiment:** ${{budgetPerExperiment}}
 
 {{phaseContext}}
+{{steeringContext}}
 
 ### Evaluation Config
 

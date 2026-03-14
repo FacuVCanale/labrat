@@ -25,7 +25,8 @@ import { ensureGitignore, ensurePreferences, untrackRuntimeFiles } from "./gitig
 import { loadEffectiveGSDPreferences } from "./preferences.js";
 import { showConfirm } from "../shared/confirm-ui.js";
 import { parseCampaignConfig, countExperiments } from "./state.js";
-import { parseAgenda, writeAgendaState, createInitialAgendaState } from "./agenda.js";
+import { parseAgenda, writeAgendaState, createInitialAgendaState, readAgendaState, getCurrentPhase } from "./agenda.js";
+import { readAllExperiments } from "./eval-runner.js";
 import type { CampaignConfig } from "./types.js";
 
 // ─── Auto-start after discuss ─────────────────────────────────────────────────
@@ -503,6 +504,171 @@ export async function showPlan(
   dispatchWorkflow(pi, prompt, "gsd-plan");
 }
 
+// ─── Steering Flow ────────────────────────────────────────────────────────────
+
+/**
+ * Build a prompt for steering an active campaign.
+ * Returns null if CAMPAIGN.json is missing or unreadable.
+ */
+export function buildSteeringPrompt(
+  mid: string,
+  sid: string,
+  basePath: string,
+): string | null {
+  const sliceDir = resolveSlicePath(basePath, mid, sid);
+  if (!sliceDir) return null;
+
+  const campaign = parseCampaignConfig(sliceDir);
+  if (!campaign) return null;
+
+  // Build target file list
+  const targetFileList = campaign.targetFiles.length > 0
+    ? campaign.targetFiles.map(f => `- \`${f}\``).join('\n')
+    : '_(no target files specified)_';
+
+  // Build metric definitions
+  const metricDefinitions = campaign.evalConfig.metrics.length > 0
+    ? campaign.evalConfig.metrics.map(m =>
+      `- **${m.name}** — direction: ${m.direction}, weight: ${m.weight}`
+    ).join('\n')
+    : '_(no metrics defined)_';
+
+  // Current phase info (if agenda exists)
+  let currentPhaseInfo = '';
+  if (campaign.agenda) {
+    const agState = readAgendaState(sliceDir);
+    if (agState) {
+      const phase = getCurrentPhase(agState, campaign.agenda);
+      if (phase) {
+        const phaseIdx = agState.currentPhaseIndex;
+        const totalPhases = campaign.agenda.phases.length;
+        const range = agState.experimentRanges[phase.name];
+        const progress = range ? `experiments ${range.start}–${range.end}` : '';
+        currentPhaseInfo = `### Current Phase\n\n**Phase ${phaseIdx + 1}/${totalPhases}: ${phase.name}**\n- Dimension: ${phase.dimension}\n- Goal: ${phase.goal}\n- Progress: ${progress}`;
+      } else {
+        currentPhaseInfo = '### Current Phase\n\nAll phases complete.';
+      }
+    }
+  }
+
+  // Recent experiment summary (last 5)
+  let recentExperiments = '';
+  const experiments = readAllExperiments(sliceDir);
+  if (experiments.length > 0) {
+    const recent = experiments.slice(-5).reverse();
+    const lines = recent.map(e => {
+      const metrics = Object.entries(e.metrics).map(([k, v]) => `${k}=${v}`).join(', ');
+      return `- **${e.id}**: ${metrics} → ${e.decision}`;
+    });
+    recentExperiments = '### Recent Experiments\n\n' + lines.join('\n');
+  } else {
+    recentExperiments = '### Recent Experiments\n\n_No experiments recorded yet._';
+  }
+
+  return loadPrompt("steer-campaign", {
+    campaignName: campaign.name,
+    researchQuestion: campaign.researchQuestion ?? campaign.name,
+    targetFileList,
+    metricDefinitions,
+    maxExperiments: String(campaign.maxExperiments),
+    currentPhaseInfo,
+    recentExperiments,
+    sliceDir: relSlicePath(basePath, mid, sid),
+  });
+}
+
+/**
+ * /gsd discuss during an active campaign — show a steering interface.
+ * Follows the showPlan pattern: guards, campaign picker, prompt dispatch.
+ */
+export async function showSteering(
+  ctx: ExtensionCommandContext,
+  pi: ExtensionAPI,
+  basePath: string,
+): Promise<void> {
+  // Guard: no .gsd/ project
+  if (!existsSync(join(basePath, ".gsd"))) {
+    ctx.ui.notify("No GSD project found. Run /gsd to start one first.", "warning");
+    return;
+  }
+
+  const state = await deriveState(basePath);
+
+  // Guard: no active milestone
+  if (!state.activeMilestone) {
+    ctx.ui.notify("No active milestone. Run /gsd to create one first.", "warning");
+    return;
+  }
+
+  const mid = state.activeMilestone.id;
+
+  // Guard: no roadmap yet
+  const roadmapFile = resolveMilestoneFile(basePath, mid, "ROADMAP");
+  const roadmapContent = roadmapFile ? await loadFile(roadmapFile) : null;
+  if (!roadmapContent) {
+    ctx.ui.notify("No roadmap yet for this milestone. Run /gsd to plan first.", "warning");
+    return;
+  }
+
+  const roadmap = parseRoadmap(roadmapContent);
+
+  // Find slices with CAMPAIGN.json files
+  const slicesWithCampaigns: { id: string; title: string; campaign: CampaignConfig }[] = [];
+  for (const s of roadmap.slices) {
+    if (s.done) continue;
+    const sDir = resolveSlicePath(basePath, mid, s.id);
+    if (!sDir) continue;
+    const campaign = parseCampaignConfig(sDir);
+    if (campaign) {
+      slicesWithCampaigns.push({ id: s.id, title: s.title, campaign });
+    }
+  }
+
+  if (slicesWithCampaigns.length === 0) {
+    ctx.ui.notify("No active campaigns to steer.", "info");
+    return;
+  }
+
+  let chosen: { id: string; title: string; campaign: CampaignConfig };
+
+  if (slicesWithCampaigns.length === 1) {
+    chosen = slicesWithCampaigns[0];
+  } else {
+    // Multiple campaigns — show picker
+    const actions = slicesWithCampaigns.map((s, i) => ({
+      id: s.id,
+      label: `${s.id}: ${s.campaign.name}`,
+      description: s.campaign.researchQuestion ?? s.title,
+      recommended: i === 0,
+    }));
+
+    const choice = await showNextAction(ctx as any, {
+      title: "GSD — Steer campaign",
+      summary: [
+        `${mid}: ${state.activeMilestone.title}`,
+        "Pick a campaign to steer.",
+      ],
+      actions,
+      notYetMessage: "Run /gsd discuss when ready.",
+    });
+
+    if (choice === "not_yet") return;
+
+    const found = slicesWithCampaigns.find(s => s.id === choice);
+    if (!found) return;
+    chosen = found;
+  }
+
+  // Build prompt and dispatch
+  const prompt = buildSteeringPrompt(mid, chosen.id, basePath);
+  if (!prompt) {
+    ctx.ui.notify("Failed to build steering prompt — campaign config may be incomplete.", "warning");
+    return;
+  }
+
+  dispatchWorkflow(pi, prompt, "gsd-steer");
+}
+
 // ─── Discuss Flow ─────────────────────────────────────────────────────────────
 
 /**
@@ -601,6 +767,12 @@ export async function showDiscuss(
   }
 
   const state = await deriveState(basePath);
+
+  // Route to steering when a campaign is actively experimenting
+  if (state.phase === "experimenting") {
+    await showSteering(ctx, pi, basePath);
+    return;
+  }
 
   // Guard: no active milestone
   if (!state.activeMilestone) {

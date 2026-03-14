@@ -381,14 +381,14 @@ async function main(): Promise<void> {
     };
 
     // Non-agenda: empty phaseContext produces clean prompt
-    const promptNoAgenda = loadPrompt('run-experiment', { ...baseVars, phaseContext: '' });
+    const promptNoAgenda = loadPrompt('run-experiment', { ...baseVars, phaseContext: '', steeringContext: '' });
     assert(!promptNoAgenda.includes('Current Phase'), 'template: no phase context when empty');
     assert(promptNoAgenda.includes('Campaign Overview'), 'template: campaign overview present');
     assert(promptNoAgenda.includes('How to optimize?'), 'template: research question present');
 
     // Agenda: phaseContext populated
     const phaseCtx = '## Current Phase: exploration\n\n**Goal:** Find best architecture\n**Dimension:** architecture\n**Experiments in phase:** 5\n**Phase 1 of 2**';
-    const promptWithAgenda = loadPrompt('run-experiment', { ...baseVars, phaseContext: phaseCtx });
+    const promptWithAgenda = loadPrompt('run-experiment', { ...baseVars, phaseContext: phaseCtx, steeringContext: '' });
     assert(promptWithAgenda.includes('Current Phase: exploration'), 'template: phase context visible');
     assert(promptWithAgenda.includes('Find best architecture'), 'template: phase goal visible');
     assert(promptWithAgenda.includes('Phase 1 of 2'), 'template: phase position visible');

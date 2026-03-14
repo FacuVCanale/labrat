@@ -61,7 +61,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Research Agenda Planning & Execution** `risk:medium` `depends:[S01]`
   > After this: `labrat plan` runs an interactive discussion and produces a structured agenda with phases. Starting a campaign with an agenda executes experiments phase-by-phase with boundary reassessment and phase-level baselines. Agenda state survives restart. Proven by contract tests and live `labrat plan` interaction with a real LLM.
 
-- [ ] **S03: Runtime Steering** `risk:medium` `depends:[S02]`
+- [x] **S03: Runtime Steering** `risk:medium` `depends:[S02]`
   > After this: While `labrat auto` runs a campaign, `labrat discuss` in a separate terminal writes steering directives. The running loop picks up the new direction at the next experiment boundary with an explicit UI notification about when steering takes effect. Proven by contract tests and operational exercise of two-terminal steering.
 
 ## Boundary Map

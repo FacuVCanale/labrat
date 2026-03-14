@@ -74,6 +74,7 @@ import { GitServiceImpl } from "./git-service.ts";
 import { getPriorSliceCompletionBlocker } from "./dispatch-guard.ts";
 import { runExperimentPostProcess, readAllExperiments, compressExperimentHistory, readBestMetrics } from "./eval-runner.js";
 import { checkAndAdvancePhase, getPhasePromptOverrides, stampPhaseIndex } from "./agenda.js";
+import { checkSteeringDirective, getSteeringPromptOverride } from "./steering.js";
 import { createMLOpsClient, type MLOpsClient } from "./mlops-integration.js";
 import type { GitPreferences } from "./git-service.ts";
 import { truncateToWidth, visibleWidth } from "@gsd/pi-tui";
@@ -1433,6 +1434,10 @@ async function dispatchNextUnit(
       // Phase boundary detection (R020: agenda-driven sequencing)
       const sliceDir = resolveSlicePath(basePath, mid, sid);
       const config = parseCampaignConfig(sliceDir);
+      // Steering directive check — process before natural phase boundary detection
+      const steer = checkSteeringDirective(sliceDir, config);
+      if (steer?.stop) { await stopAuto(ctx, pi); return; }
+      if (steer?.notify) ctx.ui.notify(steer.notify, "info");
       if (config?.agenda) {
         const msg = checkAndAdvancePhase(sliceDir, config.agenda, expNum, readAllExperiments(sliceDir));
         if (msg) ctx.ui.notify(msg, "info");
@@ -2031,6 +2036,7 @@ async function buildExperimentPrompt(
     bestMetrics: bestMetricsBlock,
     experimentHistory,
     phaseContext,
+    steeringContext: getSteeringPromptOverride(sliceDir),
   });
 }
 

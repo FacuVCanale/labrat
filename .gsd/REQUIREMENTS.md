@@ -295,18 +295,24 @@ Guidelines:
 - Description: Some experiments depend on others. Support for sequential phases within a campaign.
 - Validation: M002/S02 — Phase boundary detection via `checkAndAdvancePhase()`, phase-specific prompts via `getPhasePromptOverrides()`, phase attribution via `stampPhaseIndex()`, AGENDA-STATE.json crash-recoverable. 61 + 106 contract tests.
 
+### R018 — Runtime Steering
+- Class: core-capability
+- Status: validated
+- Description: `discuss` command to redirect the campaign while it runs. Reprioritize experiments, add new ideas, skip unpromising directions.
+- Validation: M002/S03 — `steering.ts` module with atomic STEERING.json I/O, `checkSteeringDirective` facade in `dispatchNextUnit`, three directive types (refocus/skip_phase/stop) with graceful degradation. `showDiscuss` routes to `showSteering` when campaign active. 137 contract tests.
+
 ## Deferred
 
 ### R018 — Runtime Steering
 - Class: core-capability
-- Status: deferred
+- Status: validated
 - Description: `discuss` command to redirect the campaign while it runs. Reprioritize experiments, add new ideas, skip unpromising directions.
 - Why it matters: Research direction often changes based on intermediate results.
 - Source: user
-- Primary owning slice: M002
+- Primary owning slice: M002/S03
 - Supporting slices: none
-- Validation: unmapped
-- Notes: Deferred to M002.
+- Validation: M002/S03 — `steering.ts` module with atomic STEERING.json I/O, `checkSteeringDirective` facade in `dispatchNextUnit`, three directive types (refocus/skip_phase/stop) with graceful degradation. `showDiscuss` routes to `showSteering` when campaign active. `steer-campaign.md` prompt template for LLM-assisted directive formulation. 137 contract tests.
+- Notes: `add_experiments` directive type deferred (D048).
 
 ### R026 — GSD-2 Upstream Feature Sync
 - Class: operability
@@ -397,7 +403,7 @@ Guidelines:
 | R015 | constraint | validated | M001/S01 | none | S01 |
 | R016 | core-capability | validated | M002/S02 | none | M002/S02 |
 | R017 | differentiator | validated | M002/S01 | none | M002/S01 |
-| R018 | core-capability | deferred | M002 | none | unmapped |
+| R018 | core-capability | validated | M002/S03 | none | M002/S03 |
 | R019 | core-capability | validated | M002/S01 | none | M002/S01 |
 | R020 | core-capability | validated | M002/S02 | none | M002/S02 |
 | R021 | anti-feature | out-of-scope | none | none | n/a |
@@ -411,5 +417,5 @@ Guidelines:
 
 - Active requirements: 0
 - Mapped to slices: 0
-- Validated: 19
+- Validated: 20
 - Unmapped active requirements: 0

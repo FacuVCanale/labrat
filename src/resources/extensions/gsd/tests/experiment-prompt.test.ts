@@ -209,6 +209,8 @@ console.log('── Template loading ──');
     targetFileSources: '### `train.py`\n\n```\nprint("hello")\n```',
     bestMetrics: '- **val_bpb:** 1.4200',
     experimentHistory: 'exp-001: ✓ kept — val_bpb=1.4200',
+    phaseContext: '',
+    steeringContext: '',
   };
 
   try {
@@ -313,6 +315,8 @@ console.log('── buildExperimentPrompt ──');
       targetFileSources,
       bestMetrics: bestMetricsBlock,
       experimentHistory: historyBlock || '_No prior experiments._',
+      phaseContext: '',
+      steeringContext: '',
     });
 
     // Verify all five sections present

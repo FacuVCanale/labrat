@@ -219,6 +219,15 @@ export interface AgendaState {
 
 // ─── Research / Experiment Types ──────────────────────────────────────────
 
+// ─── Steering Directive Types ────────────────────────────────────────────
+
+export interface SteeringDirective {
+  type: 'refocus' | 'skip_phase' | 'stop';
+  message: string;
+  timestamp: string;
+  appliedAt?: string;
+}
+
 // ─── Diff-Stat / Simplicity Types ─────────────────────────────────────────
 
 export interface DiffStat {

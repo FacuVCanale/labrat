@@ -14,13 +14,11 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 **M001 (Core Research Loop) complete.** All 15 requirements validated across 7 slices with 480 contract/integration tests passing.
 
-**M002/S01 (Simplicity-Aware Evaluation & Multi-File Safety) complete.** Evaluation pipeline now factors in code simplicity via configurable diff-stat scoring (`simplicityWeight`), and catches out-of-scope file modifications with pre-eval revert. Both features default-off, backward-compatible with M001. 70 new contract tests (39 simplicity + 31 target validation). R017 and R019 validated.
+**M002 (Structured Research & Intelligence) complete.** All 3 slices shipped. Simplicity-aware evaluation with configurable diff-stat scoring. Multi-file safety with pre-eval scope validation. Research agenda planning with `labrat plan` and multi-phase execution. Runtime steering via `labrat discuss` with atomic STEERING.json I/O and three directive types (refocus, skip_phase, stop). 20 total requirements validated. 419 new contract tests across M002 (70 simplicity/target + 212 agenda/plan + 137 steering).
 
-**M002/S02 (Research Agenda Planning & Execution) complete.** `labrat plan` decomposes research questions into structured agendas with ordered phases. Campaigns with agendas execute phase-by-phase with boundary reassessment, phase-level baselines, and phase-specific experiment prompts. Agenda state survives process crash via atomic writes. 212 new contract tests (106 agenda + 61 execution + 45 plan-command). R016 and R020 validated. 19 total requirements validated.
+The full research engine is operational: GSD-2 v2.10.6 rebranded as Labrat with dual-mode state machine (`experimenting` phase alongside development flow, triggered by CAMPAIGN.json). Eval pipeline handles subprocess execution with timeout, JSON metric parsing, multi-run median aggregation, direction-aware weighted composite scoring, simplicity-aware keep/discard decisions, and automatic git revert. Research prompts deliver five-section fresh context per experiment with optional phase-aware and steering-aware context. Crash recovery detects and reverts orphan experiment commits on restart. Budget guards (per-experiment and campaign-level) pause before overspending. Live W&B and MLFlow REST integration with circuit breaker resilience. CLI (`labrat start`, `labrat plan`, `labrat report`) and 7-section terminal morning report operational. Mid-campaign steering via `labrat discuss` writes directives consumed at experiment boundaries.
 
-The full research engine is operational: GSD-2 v2.10.6 rebranded as Labrat with dual-mode state machine (`experimenting` phase alongside development flow, triggered by CAMPAIGN.json). Eval pipeline handles subprocess execution with timeout, JSON metric parsing, multi-run median aggregation, direction-aware weighted composite scoring, and keep/discard decisions with automatic git revert. Research prompts deliver five-section fresh context per experiment with optional phase-aware context for agenda campaigns. Crash recovery detects and reverts orphan experiment commits on restart. Budget guards (per-experiment and campaign-level) pause before overspending. Live W&B and MLFlow REST integration with circuit breaker resilience. CLI (`labrat start`, `labrat plan`, `labrat report`) and 7-section terminal morning report operational.
-
-Ready for M002/S03 (Runtime Steering).
+Ready for M003 (Upstream Sync & Ecosystem).
 
 ## Architecture / Key Patterns
 
@@ -39,5 +37,5 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 ## Milestone Sequence
 
 - [x] M001: Core Research Loop — Autonomous experiment engine with eval, keep/discard, crash recovery, live MLOps integration, CLI, and morning report. 15 requirements validated. 480 tests.
-- [ ] M002: Structured Research & Intelligence — Research agenda planning, simplicity-aware decisions, runtime steering, multi-file experiments, experiment sequencing
+- [x] M002: Structured Research & Intelligence — Research agenda planning, simplicity-aware decisions, runtime steering, multi-file experiments, experiment sequencing. 5 requirements validated. 419 new tests.
 - [ ] M003: Upstream Sync & Ecosystem — Mechanism for analyzing and integrating GSD-2 upstream improvements into Labrat
