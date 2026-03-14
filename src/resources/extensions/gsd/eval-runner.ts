@@ -287,12 +287,133 @@ export function readBestMetrics(sliceDir: string): Record<string, number> | null
 }
 
 /**
+ * Read all experiments from the experiment log (JSONL).
+ * Parses each line, skips unparseable lines gracefully.
+ * Returns entries in file order. Returns empty array if file is missing.
+ */
+export function readAllExperiments(sliceDir: string): ExperimentResult[] {
+  const logPath = join(sliceDir, 'EXPERIMENT-LOG.jsonl');
+  if (!existsSync(logPath)) return [];
+
+  let content: string;
+  try {
+    content = readFileSync(logPath, 'utf-8');
+  } catch {
+    return [];
+  }
+
+  const results: ExperimentResult[] = [];
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const entry = JSON.parse(trimmed) as ExperimentResult;
+      results.push(entry);
+    } catch {
+      // Skip unparseable lines
+      continue;
+    }
+  }
+  return results;
+}
+
+/**
+ * Compress experiment history into one-liner summaries for prompt context.
+ * Newest-first ordering. Cap defaults to 20.
+ * Format: `exp-003: ✓ kept — val_bpb=1.4200 (train.py: +5/-3)`
+ *         `exp-002: ✗ discarded — regression (val_bpb=1.5500)`
+ */
+export function compressExperimentHistory(experiments: ExperimentResult[], cap: number = 20): string {
+  if (experiments.length === 0) return '';
+
+  // Newest-first: reverse a copy
+  const sorted = [...experiments].reverse();
+  const capped = sorted.slice(0, cap);
+
+  const lines = capped.map(exp => {
+    const kept = exp.decision?.decision === 'keep';
+    const icon = kept ? '✓ kept' : '✗ discarded';
+
+    // Format metrics to 4 decimal places
+    const metricParts = Object.entries(exp.metrics ?? {})
+      .map(([name, value]) => `${name}=${value.toFixed(4)}`)
+      .join(', ');
+
+    // Use description for change context; fall back to diff hash
+    const description = exp.description && exp.description !== 'eval post-process'
+      ? exp.description
+      : (exp.diff ? `diff:${exp.diff.slice(0, 8)}` : '');
+
+    const reason = !kept && exp.decision?.reason
+      ? exp.decision.reason
+      : '';
+
+    // Build the line
+    let line = `${exp.id}: ${icon}`;
+    if (kept && metricParts) {
+      line += ` — ${metricParts}`;
+    } else if (!kept && reason) {
+      line += ` — ${reason}`;
+    }
+    if (metricParts && !kept) {
+      line += ` (${metricParts})`;
+    }
+    if (description) {
+      line += ` (${description})`;
+    }
+
+    return line;
+  });
+
+  return lines.join('\n');
+}
+
+/**
  * Append an experiment result to the experiment log.
  * Uses appendFileSync for crash safety — each write is atomic to the OS.
  */
 export function appendExperimentLog(sliceDir: string, result: ExperimentResult): void {
   const logPath = join(sliceDir, 'EXPERIMENT-LOG.jsonl');
   appendFileSync(logPath, JSON.stringify(result) + '\n');
+}
+
+// ─── Diff-Stat Summary ──────────────────────────────────────────────────
+
+/**
+ * Extract a concise diff-stat summary from git for the most recent commit.
+ * Returns a one-liner like `"train.py | 8 ++++---"` or multi-file summary.
+ * Falls back to `'eval post-process'` if git diff fails (e.g., first commit).
+ */
+export function extractDiffStat(basePath: string): string {
+  try {
+    const result = spawnSync('git', ['diff', '--stat', 'HEAD~1..HEAD'], {
+      cwd: basePath,
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
+
+    if (result.status !== 0 || !result.stdout) {
+      return 'eval post-process';
+    }
+
+    // git diff --stat output ends with a summary line like:
+    //   " 2 files changed, 10 insertions(+), 3 deletions(-)"
+    // File lines look like:
+    //   " train.py | 8 ++++---"
+    const lines = result.stdout.split('\n').filter(l => l.trim());
+    if (lines.length === 0) return 'eval post-process';
+
+    // Take only file lines (contain ' | '), skip the trailing summary
+    const fileLines = lines
+      .filter(l => l.includes(' | '))
+      .map(l => l.trim());
+
+    if (fileLines.length === 0) return 'eval post-process';
+
+    return fileLines.join(', ');
+  } catch {
+    return 'eval post-process';
+  }
 }
 
 // ─── Orchestrator ───────────────────────────────────────────────────────────
@@ -317,12 +438,15 @@ export function runExperimentPostProcess(opts: {
   const startTime = Date.now();
   const expId = `exp-${String(experimentNumber).padStart(3, '0')}`;
 
+  // Extract diff-stat before any potential revert (revert would change HEAD)
+  const diffStatDescription = extractDiffStat(basePath);
+
   // Read campaign config
   const config = parseCampaignConfig(sliceDir);
   if (!config) {
     const result: ExperimentResult = {
       id: expId,
-      description: 'eval post-process',
+      description: diffStatDescription,
       metrics: {},
       decision: {
         decision: 'discard',
@@ -382,7 +506,7 @@ export function runExperimentPostProcess(opts: {
 
     const result: ExperimentResult = {
       id: expId,
-      description: 'eval post-process',
+      description: diffStatDescription,
       metrics: {},
       decision: {
         decision: 'discard',
@@ -409,7 +533,7 @@ export function runExperimentPostProcess(opts: {
 
   const result: ExperimentResult = {
     id: expId,
-    description: 'eval post-process',
+    description: diffStatDescription,
     metrics: aggregated,
     decision,
     duration: Date.now() - startTime,

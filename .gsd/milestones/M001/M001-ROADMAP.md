@@ -61,7 +61,7 @@ This milestone is complete only when all are true:
 - [x] **S03: Eval Runner & Keep/Discard Engine** `risk:high` `depends:[S02]`
   > After this: run a user-defined eval command, parse JSON metrics from stdout, compare against baseline with weighted composite scoring, keep (commit) if improved or discard (revert) if not.
 
-- [ ] **S04: Research Prompts & Fresh Context** `risk:medium` `depends:[S02]`
+- [x] **S04: Research Prompts & Fresh Context** `risk:medium` `depends:[S02]`
   > After this: LLM receives experiment-oriented prompt with target file source, prior experiment diffs, compressed history, best results — fresh context per experiment. LLM produces meaningful code modifications.
 
 - [ ] **S05: Experiment Log, Crash Recovery & Supervision** `risk:medium` `depends:[S03]`

@@ -16,7 +16,7 @@ import type {
   ExtensionCommandContext,
 } from "@gsd/pi-coding-agent";
 
-import { deriveState, countExperiments } from "./state.js";
+import { deriveState, countExperiments, parseCampaignConfig } from "./state.js";
 import type { GSDState } from "./types.js";
 import { loadFile, parseContinue, parsePlan, parseRoadmap, parseSummary, extractUatType, inlinePriorMilestoneSummary, getManifestStatus } from "./files.js";
 export { inlinePriorMilestoneSummary };
@@ -71,7 +71,7 @@ import {
 } from "./worktree.ts";
 import { GitServiceImpl } from "./git-service.ts";
 import { getPriorSliceCompletionBlocker } from "./dispatch-guard.ts";
-import { runExperimentPostProcess } from "./eval-runner.js";
+import { runExperimentPostProcess, readAllExperiments, compressExperimentHistory, readBestMetrics } from "./eval-runner.js";
 import type { GitPreferences } from "./git-service.ts";
 import { truncateToWidth, visibleWidth } from "@gsd/pi-tui";
 import { makeUI, GLYPH, INDENT } from "../shared/ui.js";
@@ -1312,18 +1312,7 @@ async function dispatchNextUnit(
       const expNum = (expProgress?.done ?? 0) + 1;
       unitType = "run-experiment";
       unitId = `${mid}/${sid}`;
-      // Stub prompt — real experiment prompt building is S04's job
-      prompt = [
-        `You are executing GSD auto-mode.`,
-        ``,
-        `## UNIT: Run Experiment ${expNum} — Slice ${sid}, Milestone ${mid}`,
-        ``,
-        `Campaign is active in this slice. Run experiment #${expNum}.`,
-        `Read CAMPAIGN.json in the slice directory for evaluation config.`,
-        `Read EXPERIMENT-LOG.jsonl for prior experiment results.`,
-        ``,
-        `After running the experiment, append the result as a JSON line to EXPERIMENT-LOG.jsonl.`,
-      ].join("\n");
+      prompt = await buildExperimentPrompt(mid, sid, basePath, expNum);
 
     } else if (state.phase === "executing" && state.activeTask) {
       // Execute next task
@@ -1826,6 +1815,81 @@ async function inlineGsdRootFile(
   const absPath = resolveGsdRootFile(base, key);
   if (!existsSync(absPath)) return null;
   return inlineFileOptional(absPath, relGsdRootFile(key), label);
+}
+
+// ─── Experiment Prompt Builder ────────────────────────────────────────────────
+
+async function buildExperimentPrompt(
+  mid: string, sid: string, basePath: string, experimentNumber: number,
+): Promise<string> {
+  const sliceDir = resolveSlicePath(basePath, mid, sid);
+
+  // Read campaign config
+  const config = parseCampaignConfig(sliceDir);
+  if (!config) {
+    // Fatal — can't build a prompt without a campaign config
+    throw new Error(`buildExperimentPrompt: no valid CAMPAIGN.json in ${sliceDir}`);
+  }
+
+  // Read target files — warn in prompt if unreadable
+  const targetSources: string[] = [];
+  for (const targetFile of config.targetFiles) {
+    const absPath = join(basePath, targetFile);
+    try {
+      if (existsSync(absPath)) {
+        const content = readFileSync(absPath, 'utf-8');
+        targetSources.push(`### \`${targetFile}\`\n\n\`\`\`\n${content.trim()}\n\`\`\``);
+      } else {
+        process.stderr.write(`[gsd] buildExperimentPrompt: target file not found: ${targetFile}\n`);
+        targetSources.push(`### \`${targetFile}\`\n\n⚠ file not found — this file does not exist yet. You may create it.`);
+      }
+    } catch (err) {
+      process.stderr.write(`[gsd] buildExperimentPrompt: error reading target file ${targetFile}: ${err}\n`);
+      targetSources.push(`### \`${targetFile}\`\n\n⚠ file not found — could not read this file.`);
+    }
+  }
+
+  // Read experiment history
+  const allExperiments = readAllExperiments(sliceDir);
+  const historyBlock = compressExperimentHistory(allExperiments);
+  const experimentHistory = historyBlock || '_No prior experiments — this is the first one._';
+
+  // Read best metrics
+  const bestMetricsRaw = readBestMetrics(sliceDir);
+  let bestMetricsBlock: string;
+  if (bestMetricsRaw && Object.keys(bestMetricsRaw).length > 0) {
+    bestMetricsBlock = Object.entries(bestMetricsRaw)
+      .map(([name, value]) => `- **${name}:** ${value.toFixed(4)}`)
+      .join('\n');
+  } else {
+    bestMetricsBlock = '_No baseline yet — this experiment establishes the first baseline._';
+  }
+
+  // Format metric definitions
+  const metricDefs = config.evalConfig.metrics
+    .map(m => `- **${m.name}**: direction=${m.direction}, weight=${m.weight}`)
+    .join('\n');
+
+  // Research question — fall back to campaign name
+  const researchQuestion = config.researchQuestion || config.name;
+
+  return loadPrompt("run-experiment", {
+    experimentNumber: String(experimentNumber),
+    milestoneId: mid,
+    sliceId: sid,
+    researchQuestion,
+    campaignName: config.name,
+    targetFileList: config.targetFiles.map(f => `\`${f}\``).join(', '),
+    maxExperiments: String(config.maxExperiments),
+    budgetPerExperiment: String(config.budgetPerExperiment),
+    evalCommand: config.evalConfig.command,
+    evalTimeout: String(config.evalConfig.timeout),
+    evalRuns: String(config.evalConfig.runs || 1),
+    metricDefinitions: metricDefs,
+    targetFileSources: targetSources.join('\n\n'),
+    bestMetrics: bestMetricsBlock,
+    experimentHistory,
+  });
 }
 
 // ─── Prompt Builders ──────────────────────────────────────────────────────────

@@ -60,13 +60,13 @@ Guidelines:
 
 ### R005 — Fresh Context Per Experiment
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Each experiment gets a clean LLM context. The prompt includes: research question, target file source, best results so far, compressed history of prior attempts, what to try next.
 - Why it matters: Prevents context pollution between experiments. LLM reasons from clean state with relevant history.
 - Source: user
 - Primary owning slice: M001/S04
 - Supporting slices: M001/S02
-- Validation: unmapped
+- Validation: S04 — buildExperimentPrompt() assembles five-section prompt with campaign overview, target files, best metrics, compressed history, and instructions. 55 contract tests covering assembly, edge cases (no history, missing files, no best metrics). Fresh context per experiment via new LLM context window per dispatch.
 - Notes: Inherited from GSD-2's fresh-context-per-unit pattern.
 
 ### R006 — Git-Based Experiment State
@@ -159,13 +159,13 @@ Guidelines:
 
 ### R014 — Research Prompts
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: LLM sees target file source code, prior experiment diffs, compressed history, best results. Decides what code changes to try. Prompt is experiment-oriented, not development-oriented.
 - Why it matters: The prompt shapes the LLM's exploration strategy. Research prompts ≠ development prompts.
 - Source: user
 - Primary owning slice: M001/S04
 - Supporting slices: none
-- Validation: unmapped
+- Validation: S04 — run-experiment.md template with five context sections, safety boundary (D006), eval-is-automatic directive. buildExperimentPrompt() assembles context from campaign config, target files, JSONL history, best metrics. extractDiffStat() provides meaningful change descriptions. 55 + 4 contract tests.
 - Notes: Replaces GSD-2's 20+ development prompt templates.
 
 ### R015 — Full LLM Provider Support
@@ -210,6 +210,18 @@ Guidelines:
 - Status: validated
 - Description: User-defined eval command produces JSON to stdout with named metrics. Configurable directions (min/max per metric). Weighted composite scoring. Hard timeout per eval (default 5 min).
 - Validation: S03 — Direction-aware weighted composite scoring, weight normalization, zero baseline guard, multi-run median aggregation, timeout enforcement, JSON parsing from mixed stdout — all proven by 66 contract tests.
+
+### R005 — Fresh Context Per Experiment
+- Class: core-capability
+- Status: validated
+- Description: Each experiment gets a clean LLM context with research question, target file source, best results, compressed history, and instructions.
+- Validation: S04 — buildExperimentPrompt() assembles five-section prompt. 55 contract tests covering assembly, edge cases (no history, missing files, no best metrics).
+
+### R014 — Research Prompts
+- Class: core-capability
+- Status: validated
+- Description: LLM sees target file source code, prior experiment diffs, compressed history, best results. Experiment-oriented, not development-oriented.
+- Validation: S04 — run-experiment.md template with five context sections, safety boundary, eval-is-automatic directive. extractDiffStat() provides meaningful change descriptions. 55 + 4 contract tests.
 
 ### R015 — Full LLM Provider Support
 - Class: constraint
@@ -350,7 +362,7 @@ Guidelines:
 | R002 | core-capability | validated | M001/S02 | M001/S04 | S02 |
 | R003 | primary-user-loop | validated | M001/S03 | M001/S02, M001/S04 | S03 |
 | R004 | core-capability | validated | M001/S03 | none | S03 |
-| R005 | core-capability | active | M001/S04 | M001/S02 | unmapped |
+| R005 | core-capability | validated | M001/S04 | M001/S02 | S04 |
 | R006 | continuity | validated | M001/S02 | M001/S03 | S02 |
 | R007 | failure-visibility | active | M001/S05 | none | unmapped |
 | R008 | operability | active | M001/S05 | none | unmapped |
@@ -359,7 +371,7 @@ Guidelines:
 | R011 | integration | active | M001/S06 | none | unmapped |
 | R012 | launchability | active | M001/S07 | none | unmapped |
 | R013 | primary-user-loop | active | M001/S07 | M001/S06 | unmapped |
-| R014 | core-capability | active | M001/S04 | none | unmapped |
+| R014 | core-capability | validated | M001/S04 | none | S04 |
 | R015 | constraint | validated | M001/S01 | none | S01 |
 | R016 | core-capability | deferred | M002 | none | unmapped |
 | R017 | differentiator | deferred | M002 | none | unmapped |
@@ -375,7 +387,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 9
-- Mapped to slices: 9
-- Validated: 6
+- Active requirements: 7
+- Mapped to slices: 7
+- Validated: 8
 - Unmapped active requirements: 0

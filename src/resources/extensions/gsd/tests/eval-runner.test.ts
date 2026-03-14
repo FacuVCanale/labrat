@@ -9,6 +9,8 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
+import { spawnSync } from 'node:child_process';
+
 import {
   runEval,
   parseMetrics,
@@ -17,6 +19,7 @@ import {
   makeKeepDiscardDecision,
   readBestMetrics,
   appendExperimentLog,
+  extractDiffStat,
 } from '../eval-runner.ts';
 
 import type { MetricDefinition, ExperimentResult } from '../types.ts';
@@ -554,6 +557,89 @@ async function main(): Promise<void> {
     const aggregated = aggregateMetrics(runs);
     assertEq(aggregated.latency, 20, 'median latency across 3 runs');
     assertEq(aggregated.throughput, 200, 'median throughput across 3 runs');
+  }
+
+  // ─── extractDiffStat ──────────────────────────────────────────────────
+
+  console.log('\n=== extractDiffStat: returns diff-stat summary from git repo ===');
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'gsd-eval-diffstat-'));
+    try {
+      // Set up a git repo with two commits
+      spawnSync('git', ['init'], { cwd: dir });
+      spawnSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir });
+      spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+      writeFileSync(join(dir, 'train.py'), 'print("hello")\n');
+      spawnSync('git', ['add', '.'], { cwd: dir });
+      spawnSync('git', ['commit', '-m', 'initial'], { cwd: dir });
+
+      // Second commit — modify the file
+      writeFileSync(join(dir, 'train.py'), 'print("hello")\nprint("world")\nprint("!")\n');
+      spawnSync('git', ['add', '.'], { cwd: dir });
+      spawnSync('git', ['commit', '-m', 'update train.py'], { cwd: dir });
+
+      const description = extractDiffStat(dir);
+      assert(description.includes('train.py'), 'description includes filename');
+      assert(description.includes('|'), 'description includes pipe separator');
+      assert(description !== 'eval post-process', 'description is not the fallback');
+    } finally {
+      cleanup(dir);
+    }
+  }
+
+  console.log('\n=== extractDiffStat: multi-file diff ===');
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'gsd-eval-diffstat-'));
+    try {
+      spawnSync('git', ['init'], { cwd: dir });
+      spawnSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir });
+      spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+      writeFileSync(join(dir, 'a.py'), 'x = 1\n');
+      writeFileSync(join(dir, 'b.py'), 'y = 2\n');
+      spawnSync('git', ['add', '.'], { cwd: dir });
+      spawnSync('git', ['commit', '-m', 'initial'], { cwd: dir });
+
+      // Modify both files
+      writeFileSync(join(dir, 'a.py'), 'x = 10\nx = 20\n');
+      writeFileSync(join(dir, 'b.py'), 'y = 20\ny = 30\n');
+      spawnSync('git', ['add', '.'], { cwd: dir });
+      spawnSync('git', ['commit', '-m', 'update both'], { cwd: dir });
+
+      const description = extractDiffStat(dir);
+      assert(description.includes('a.py'), 'multi-file description includes a.py');
+      assert(description.includes('b.py'), 'multi-file description includes b.py');
+    } finally {
+      cleanup(dir);
+    }
+  }
+
+  console.log('\n=== extractDiffStat: fallback on first commit (no HEAD~1) ===');
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'gsd-eval-diffstat-'));
+    try {
+      spawnSync('git', ['init'], { cwd: dir });
+      spawnSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dir });
+      spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+      writeFileSync(join(dir, 'file.txt'), 'hello\n');
+      spawnSync('git', ['add', '.'], { cwd: dir });
+      spawnSync('git', ['commit', '-m', 'first'], { cwd: dir });
+
+      const description = extractDiffStat(dir);
+      assertEq(description, 'eval post-process', 'falls back when only one commit exists');
+    } finally {
+      cleanup(dir);
+    }
+  }
+
+  console.log('\n=== extractDiffStat: fallback on non-git directory ===');
+  {
+    const dir = mkdtempSync(join(tmpdir(), 'gsd-eval-diffstat-'));
+    try {
+      const description = extractDiffStat(dir);
+      assertEq(description, 'eval post-process', 'falls back for non-git directory');
+    } finally {
+      cleanup(dir);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════

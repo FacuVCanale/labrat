@@ -222,6 +222,7 @@ export interface ExperimentResult {
 
 export interface CampaignConfig {
   name: string;
+  researchQuestion?: string;
   targetFiles: string[];
   evalConfig: EvaluationConfig;
   maxExperiments: number;
