@@ -56,7 +56,7 @@ This milestone is complete only when all are true:
 - [x] **S01: Compute Backend Interface & Local Backend** `risk:high` `depends:[]`
   > After this: `runEval()` dispatches through `ComputeBackend` interface; existing local eval works identically via `LocalBackend`; all existing tests pass unchanged (proven by test suite).
 
-- [ ] **S02: Git Code Sync** `risk:medium` `depends:[S01]`
+- [x] **S02: Git Code Sync** `risk:medium` `depends:[S01]`
   > After this: before remote eval, experiment branch is pushed to origin; `syncCode()` helper verifies the push succeeded and the remote ref matches local HEAD (proven by contract tests with git subprocess).
 
 - [ ] **S03: SSH Compute Backend** `risk:high` `depends:[S01,S02]`

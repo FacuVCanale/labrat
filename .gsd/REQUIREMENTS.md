@@ -71,13 +71,13 @@ Guidelines:
 
 ### R032 — Code Sync via Git
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Before remote eval, push experiment branch to origin. Remote backend pulls the latest commit. Ensures code state on remote matches local HEAD.
 - Why it matters: Git is the transport — same mechanism for SSH and Docker. No separate file transfer needed.
 - Source: user
 - Primary owning slice: M004/S02
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M004/S02 — pushExperimentBranch() pushes current branch to remote, verifies via ls-remote. Contract tests prove: push success, already-up-to-date no-op, detached HEAD error, missing remote error, diverged branch rejection, custom remote name. 7 scenarios, 23 assertions.
 - Notes: Push is best-effort idempotent — if branch is already up to date, no-op.
 
 ### R033 — Credential Management for Backends
@@ -418,6 +418,12 @@ Guidelines:
 - Description: `runEval()` in eval-runner.ts dispatches to the configured compute backend. Transparent to all callers — same `RunEvalResult` shape.
 - Validation: M004/S01 — runExperimentPostProcess dispatches through resolveBackend(config.compute); all 73 eval-runner tests pass unchanged; 15 dispatch parity assertions
 
+### R032 — Code Sync via Git
+- Class: core-capability
+- Status: validated
+- Description: Before remote eval, push experiment branch to origin. Remote backend pulls the latest commit. Ensures code state on remote matches local HEAD.
+- Validation: M004/S02 — pushExperimentBranch() pushes current branch to remote, verifies via ls-remote. 7 scenarios, 23 assertions.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -578,7 +584,7 @@ Guidelines:
 | R029 | core-capability | active | M004/S04 | M004/S02 | unmapped |
 | R030 | integration | validated | M004/S01 | M004/S05 | M004/S01 |
 | R031 | operability | active | M004/S05 | M004/S01 | unmapped |
-| R032 | core-capability | active | M004/S02 | none | unmapped |
+| R032 | core-capability | validated | M004/S02 | none | M004/S02 |
 | R033 | operability | active | M004/S05 | none | unmapped |
 | R034 | failure-visibility | active | M004/S01 | M004/S03, M004/S04 | unmapped |
 | R035 | operability | active | M004/S01 | M004/S03, M004/S04 | unmapped |
@@ -591,7 +597,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 7
-- Mapped to slices: 7
-- Validated: 23
+- Active requirements: 6
+- Mapped to slices: 6
+- Validated: 24
 - Unmapped active requirements: 0

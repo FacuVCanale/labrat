@@ -312,6 +312,15 @@ export interface ExperimentContext {
   researchQuestion: string;
 }
 
+// ─── Code Sync Types ────────────────────────────────────────────────────
+
+export interface SyncResult {
+  pushed: boolean;
+  ref: string;
+  remote: string;
+  error?: string;
+}
+
 // ─── Upstream Sync Types ────────────────────────────────────────────────
 
 export type CommitCategory = 'infrastructure' | 'development-specific' | 'mixed';
