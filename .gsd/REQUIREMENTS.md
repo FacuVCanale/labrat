@@ -60,13 +60,13 @@ Guidelines:
 
 ### R031 — Backend Configuration
 - Class: operability
-- Status: active
+- Status: validated
 - Description: `CampaignConfig.compute` optional field specifying backend type and backend-specific settings (host, image, repo URL, etc.). Absent = local.
 - Why it matters: Users need a clean way to tell Labrat "run eval on this backend" without modifying code.
 - Source: user
 - Primary owning slice: M004/S05
 - Supporting slices: M004/S01
-- Validation: unmapped
+- Validation: M004/S05 — validateComputeConfig() validates SSH (host+workDir), Docker (image), local, rejects unknown types. parseCampaignConfig returns null on invalid compute. 18 config validation assertions.
 - Notes: Config shape must be extensible for future backends (Modal, RunPod, Lambda).
 
 ### R032 — Code Sync via Git
@@ -82,35 +82,35 @@ Guidelines:
 
 ### R033 — Credential Management for Backends
 - Class: operability
-- Status: active
+- Status: validated
 - Description: SSH keys via ssh-agent/config, Docker auth via Docker config. No new credential storage — reuse existing OS mechanisms.
 - Why it matters: Users already have SSH keys and Docker credentials configured. Labrat should not invent its own credential store.
 - Source: inferred
 - Primary owning slice: M004/S05
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M004/S05 — checkSSHConnectivity() and checkDockerDaemon() pre-flight helpers use OS-native ssh/docker binaries. Mock binary tests prove structured error returns with actionable messages. Pre-flight failures produce discard with "Pre-flight failed:" prefix.
 - Notes: Credential errors must produce actionable messages ("SSH key not found", "Docker daemon not reachable").
 
 ### R034 — Backend Failure Handling
 - Class: failure-visibility
-- Status: active
+- Status: validated
 - Description: Connection failures, timeouts, remote crashes handled gracefully. Backend errors produce discard decisions with clear error messages, not unhandled exceptions.
 - Why it matters: Overnight runs must survive remote failures without crashing the orchestrator.
 - Source: inferred
 - Primary owning slice: M004/S01
-- Supporting slices: M004/S03, M004/S04
-- Validation: unmapped
+- Supporting slices: M004/S03, M004/S04, M004/S05
+- Validation: M004/S05 — try/catch wraps resolveBackend + eval loop in runExperimentPostProcess, producing discard ExperimentResult with revert + JSONL logging. Backend throw → "backend error:" prefix in reason. Pre-flight failure → "Pre-flight failed:" prefix. 10 error wrapping assertions.
 - Notes: Backend errors are treated like eval failures — the experiment is discarded with a reason, and the loop continues.
 
 ### R035 — Eval Timeout Forwarding
 - Class: operability
-- Status: active
+- Status: validated
 - Description: Campaign eval timeout is forwarded to the backend. SSH/Docker kill the remote process on timeout. Same timeout semantics as local.
 - Why it matters: Remote eval must respect the same timeout contract as local eval. Runaway remote processes must be killed.
 - Source: inferred
 - Primary owning slice: M004/S01
-- Supporting slices: M004/S03, M004/S04
-- Validation: unmapped
+- Supporting slices: M004/S03, M004/S04, M004/S05
+- Validation: M004/S05 — End-to-end dispatch test proves timeout flows from config through resolveBackend to backend.runEval. SSH timeout via remote `timeout` command (S03). Docker timeout via `--stop-timeout` + safety-net kill (S04). 19 end-to-end assertions.
 - Notes: SSH uses `timeout` command on remote or signal-based kill. Docker uses `--stop-timeout` or container kill.
 
 ### R001 — GSD-2 Base & Upstream Tracking
@@ -436,6 +436,30 @@ Guidelines:
 - Description: Run eval inside a Docker container (local or remote Docker host). Mount repo or git clone inside container. Supports GPU passthrough via `--gpus` flag.
 - Validation: M004/S04 — DockerBackend with local (volume mount) and remote (git clone) paths, GPU passthrough, Docker-specific exit code mapping (124/125/126/127), env forwarding, safety-net timeout. 79 contract tests via mock docker binary.
 
+### R031 — Backend Configuration
+- Class: operability
+- Status: validated
+- Description: `CampaignConfig.compute` optional field specifying backend type and backend-specific settings. Absent = local.
+- Validation: M004/S05 — validateComputeConfig() validates SSH (host+workDir), Docker (image), local, rejects unknown types. parseCampaignConfig returns null on invalid compute. 18 config validation assertions.
+
+### R033 — Credential Management for Backends
+- Class: operability
+- Status: validated
+- Description: SSH keys via ssh-agent/config, Docker auth via Docker config. No new credential storage — reuse existing OS mechanisms.
+- Validation: M004/S05 — checkSSHConnectivity() and checkDockerDaemon() pre-flight helpers use OS-native ssh/docker binaries. Structured error returns with actionable messages.
+
+### R034 — Backend Failure Handling
+- Class: failure-visibility
+- Status: validated
+- Description: Backend errors produce discard decisions with clear error messages, not unhandled exceptions.
+- Validation: M004/S05 — try/catch wraps resolveBackend + eval loop producing discard ExperimentResult with revert + JSONL logging. 10 error wrapping assertions.
+
+### R035 — Eval Timeout Forwarding
+- Class: operability
+- Status: validated
+- Description: Campaign eval timeout forwarded to backend. SSH/Docker kill remote process on timeout.
+- Validation: M004/S05 — End-to-end dispatch proves timeout flows config → resolveBackend → backend.runEval. 19 end-to-end assertions.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -595,11 +619,11 @@ Guidelines:
 | R028 | core-capability | validated | M004/S03 | M004/S02 | M004/S03 |
 | R029 | core-capability | validated | M004/S04 | M004/S02 | M004/S04 |
 | R030 | integration | validated | M004/S01 | M004/S05 | M004/S01 |
-| R031 | operability | active | M004/S05 | M004/S01 | unmapped |
+| R031 | operability | validated | M004/S05 | M004/S01 | M004/S05 |
 | R032 | core-capability | validated | M004/S02 | none | M004/S02 |
-| R033 | operability | active | M004/S05 | none | unmapped |
-| R034 | failure-visibility | active | M004/S01 | M004/S03, M004/S04 | unmapped |
-| R035 | operability | active | M004/S01 | M004/S03, M004/S04 | unmapped |
+| R033 | operability | validated | M004/S05 | none | M004/S05 |
+| R034 | failure-visibility | validated | M004/S01 | M004/S03, M004/S04, M004/S05 | M004/S05 |
+| R035 | operability | validated | M004/S01 | M004/S03, M004/S04, M004/S05 | M004/S05 |
 | R036 | core-capability | deferred | none | none | unmapped |
 | R037 | core-capability | deferred | none | none | unmapped |
 | R038 | core-capability | deferred | none | none | unmapped |
@@ -609,7 +633,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 4
-- Mapped to slices: 4
-- Validated: 26
+- Active requirements: 0
+- Mapped to slices: 0
+- Validated: 30
 - Unmapped active requirements: 0

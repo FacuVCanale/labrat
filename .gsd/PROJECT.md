@@ -20,7 +20,9 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 The full research engine is operational: GSD-2 v2.10.6 rebranded as Labrat with dual-mode state machine (`experimenting` phase alongside development flow, triggered by CAMPAIGN.json). Eval pipeline handles subprocess execution with timeout, JSON metric parsing, multi-run median aggregation, direction-aware weighted composite scoring, simplicity-aware keep/discard decisions, and automatic git revert. Research prompts deliver five-section fresh context per experiment with optional phase-aware and steering-aware context. Crash recovery detects and reverts orphan experiment commits on restart. Budget guards (per-experiment and campaign-level) pause before overspending. Live W&B and MLFlow REST integration with circuit breaker resilience. CLI (`labrat start`, `labrat plan`, `labrat sync`, `labrat report`) and 7-section terminal morning report operational. Mid-campaign steering via `labrat discuss` writes directives consumed at experiment boundaries. Upstream sync identifies, categorizes, applies, and adapts GSD-2 improvements.
 
-All 26 requirements validated across M001–M004/S04.
+**M004 (Remote Compute Backends) complete.** All 5 slices shipped. Pluggable `ComputeBackend` interface with `LocalBackend` (default), `SSHBackend` (native ssh with ControlMaster), and `DockerBackend` (with GPU passthrough). Git code sync pushes experiment branch before remote eval. Compute config validated at parse time — SSH requires host+workDir, Docker requires image, absent=local. Pre-flight SSH/Docker checks surface actionable messages. Backend errors produce clean discard results with revert+JSONL logging. 244 contract/integration tests across the milestone (45 S01 + 23 S02 + 52 S03 + 79 S04 + 55 S05 = 254, minus 10 overlap from S01 regression suite). All 9 requirements (R027–R035) validated.
+
+All 30 requirements validated across M001–M004.
 
 ## Architecture / Key Patterns
 
@@ -41,4 +43,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 - [x] M001: Core Research Loop — Autonomous experiment engine with eval, keep/discard, crash recovery, live MLOps integration, CLI, and morning report. 15 requirements validated. 480 tests.
 - [x] M002: Structured Research & Intelligence — Research agenda planning, simplicity-aware decisions, runtime steering, multi-file experiments, experiment sequencing. 5 requirements validated. 419 new tests.
 - [x] M003: Upstream Sync & Ecosystem — Mechanism for analyzing, categorizing, applying, and LLM-adapting GSD-2 upstream improvements into Labrat. 1 requirement validated. 167 tests.
-- [ ] M004: Remote Compute Backends — Pluggable compute backend abstraction for eval dispatch. SSH and Docker backends ship first; interface supports future serverless GPU backends (Modal, RunPod, Lambda).
+- [x] M004: Remote Compute Backends — Pluggable compute backend abstraction for eval dispatch. SSH and Docker backends with git code sync, pre-flight credential checks, backend error wrapping. 9 requirements validated. 254 tests.

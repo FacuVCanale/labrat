@@ -23,7 +23,7 @@ import type {
 import { revertExperiment } from './worktree.js';
 import { parseCampaignConfig } from './state.js';
 import { extractNumericDiffStat, computeSimplicityScore } from './simplicity-scorer.js';
-import { resolveBackend } from './compute-backend.js';
+import { resolveBackend, checkSSHConnectivity, checkDockerDaemon } from './compute-backend.js';
 
 // ─── Subprocess Execution ───────────────────────────────────────────────────
 
@@ -552,7 +552,78 @@ export function runExperimentPostProcess(opts: {
   }
 
   // Resolve compute backend from config (absent/local → LocalBackend)
-  const backend = resolveBackend(config.compute);
+  let backend;
+  try {
+    backend = resolveBackend(config.compute);
+  } catch (err: any) {
+    const reason = `backend error: ${err?.message ?? String(err)}`;
+    const result: ExperimentResult = {
+      id: expId,
+      description: diffStatDescription,
+      metrics: {},
+      decision: {
+        decision: 'discard',
+        reason,
+        comparison: {},
+      },
+      duration: Date.now() - startTime,
+      cost: 0,
+      diff: commitHash,
+      timestamp: new Date().toISOString(),
+    };
+    revertExperiment(basePath, expId, commitHash, reason);
+    appendExperimentLog(sliceDir, result);
+    return result;
+  }
+
+  // Pre-flight checks for remote backends
+  if (config.compute?.type === 'ssh') {
+    const check = checkSSHConnectivity(config.compute.host);
+    if (!check.ok) {
+      const reason = `Pre-flight failed: SSH connectivity to ${config.compute.host}: ${check.error}`;
+      const result: ExperimentResult = {
+        id: expId,
+        description: diffStatDescription,
+        metrics: {},
+        decision: {
+          decision: 'discard',
+          reason,
+          comparison: {},
+        },
+        duration: Date.now() - startTime,
+        cost: 0,
+        diff: commitHash,
+        timestamp: new Date().toISOString(),
+      };
+      revertExperiment(basePath, expId, commitHash, reason);
+      appendExperimentLog(sliceDir, result);
+      return result;
+    }
+  } else if (config.compute?.type === 'docker') {
+    const check = checkDockerDaemon(config.compute.dockerHost);
+    if (!check.ok) {
+      const reason = `Pre-flight failed: Docker daemon${config.compute.dockerHost ? ` at ${config.compute.dockerHost}` : ''}: ${check.error}`;
+      const result: ExperimentResult = {
+        id: expId,
+        description: diffStatDescription,
+        metrics: {},
+        decision: {
+          decision: 'discard',
+          reason,
+          comparison: {},
+        },
+        duration: Date.now() - startTime,
+        cost: 0,
+        diff: commitHash,
+        timestamp: new Date().toISOString(),
+      };
+      revertExperiment(basePath, expId, commitHash, reason);
+      appendExperimentLog(sliceDir, result);
+      return result;
+    }
+  }
+
+  try {
 
   const evalConfig = config.evalConfig;
   const numRuns = evalConfig.runs || 1;
@@ -681,4 +752,26 @@ export function runExperimentPostProcess(opts: {
   appendExperimentLog(sliceDir, result);
 
   return result;
+
+  } catch (err: any) {
+    // Wrap unexpected backend/eval errors into a clean discard result
+    const reason = `backend error: ${err?.message ?? String(err)}`;
+    const result: ExperimentResult = {
+      id: expId,
+      description: diffStatDescription,
+      metrics: {},
+      decision: {
+        decision: 'discard',
+        reason,
+        comparison: {},
+      },
+      duration: Date.now() - startTime,
+      cost: 0,
+      diff: commitHash,
+      timestamp: new Date().toISOString(),
+    };
+    revertExperiment(basePath, expId, commitHash, reason);
+    appendExperimentLog(sliceDir, result);
+    return result;
+  }
 }

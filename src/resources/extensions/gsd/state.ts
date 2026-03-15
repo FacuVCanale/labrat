@@ -92,9 +92,37 @@ export function parseCampaignConfig(sliceDir: string): CampaignConfig | null {
     ) {
       return null;
     }
+    // Validate compute config if present
+    if (parsed.compute !== undefined && !validateComputeConfig(parsed.compute)) {
+      return null;
+    }
+
     return parsed as CampaignConfig;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Validate a compute config object.
+ * SSH requires host (string) and workDir (string).
+ * Docker requires image (string).
+ * Local is always valid.
+ * Unknown type or non-object → invalid.
+ */
+export function validateComputeConfig(compute: unknown): boolean {
+  if (typeof compute !== 'object' || compute === null) return false;
+  const obj = compute as Record<string, unknown>;
+
+  switch (obj.type) {
+    case 'local':
+      return true;
+    case 'ssh':
+      return typeof obj.host === 'string' && typeof obj.workDir === 'string';
+    case 'docker':
+      return typeof obj.image === 'string';
+    default:
+      return false;
   }
 }
 

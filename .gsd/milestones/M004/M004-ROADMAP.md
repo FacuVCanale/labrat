@@ -65,7 +65,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Docker Compute Backend** `risk:medium` `depends:[S01,S02]`
   > After this: `DockerBackend` runs eval inside a Docker container with optional GPU passthrough, returns same `RunEvalResult` shape; missing Docker daemon produces actionable error (proven by contract tests).
 
-- [ ] **S05: Configuration, Credentials & Integration** `risk:low` `depends:[S01,S02,S03,S04]`
+- [x] **S05: Configuration, Credentials & Integration** `risk:low` `depends:[S01,S02,S03,S04]`
   > After this: `CampaignConfig.compute` field fully parsed with backend-specific validation; credential errors produce actionable messages; end-to-end dispatch test proves config → backend resolution → eval execution → result return.
 
 ## Boundary Map

@@ -86,3 +86,34 @@ export function resolveBackend(config?: ComputeConfig): ComputeBackend {
   const _exhaustive: never = config;
   throw new Error(`Unsupported compute backend type: "${(config as any).type}"`);
 }
+
+// ─── Pre-flight Checks ──────────────────────────────────────────────────────
+
+/**
+ * Check SSH connectivity to a remote host.
+ * Runs `ssh -o BatchMode=yes -o ConnectTimeout=5 <host> true`.
+ * Returns { ok: true } on exit 0, { ok: false, error: <stderr> } otherwise.
+ */
+export function checkSSHConnectivity(host: string): { ok: boolean; error?: string } {
+  const result = spawnSync('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=5', host, 'true'], {
+    encoding: 'utf-8',
+    timeout: 15_000,
+  });
+  if (result.status === 0) return { ok: true };
+  return { ok: false, error: (result.stderr ?? '').trim() || `ssh exited with code ${result.status}` };
+}
+
+/**
+ * Check Docker daemon reachability.
+ * Runs `docker info` (or `docker -H <host> info` if dockerHost is set).
+ * Returns { ok: true } on exit 0, { ok: false, error: <stderr> } otherwise.
+ */
+export function checkDockerDaemon(dockerHost?: string): { ok: boolean; error?: string } {
+  const args = dockerHost ? ['-H', dockerHost, 'info'] : ['info'];
+  const result = spawnSync('docker', args, {
+    encoding: 'utf-8',
+    timeout: 15_000,
+  });
+  if (result.status === 0) return { ok: true };
+  return { ok: false, error: (result.stderr ?? '').trim() || `docker exited with code ${result.status}` };
+}
