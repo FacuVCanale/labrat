@@ -1111,8 +1111,8 @@ async function main(): Promise<void> {
 
   {
     const repo = initBranchTestRepo();
-    // Custom command string overrides auto-detection
-    const svc = new GitServiceImpl(repo, { pre_merge_check: "node -e 'process.exit(0)'" });
+    // Custom command string overrides auto-detection (must pass isSimpleCommand validation)
+    const svc = new GitServiceImpl(repo, { pre_merge_check: "true" });
     const result: PreMergeCheckResult = svc.runPreMergeCheck();
 
     assertEq(result.passed, true, "runPreMergeCheck passes with custom command that exits 0");

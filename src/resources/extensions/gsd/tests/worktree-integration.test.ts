@@ -25,18 +25,61 @@ import {
 
 import {
   detectWorktreeName,
-  ensureSliceBranch,
-  getActiveSliceBranch,
-  getCurrentBranch,
-  getMainBranch,
   getSliceBranchName,
-  isOnSliceBranch,
-  mergeSliceToMain,
-  switchToMain,
-  autoCommitCurrentBranch,
+  SLICE_BRANCH_RE,
 } from "../worktree.ts";
 
+import { GitServiceImpl } from "../git-service.ts";
+
 import { deriveState } from "../state.ts";
+
+// ─── Service-based helpers (bypass global preferences) ─────────────────────
+// The facade functions in worktree.ts load global preferences (~/.gsd/preferences.md)
+// which may override main_branch. These tests create isolated temp repos and need
+// to use GitServiceImpl directly with empty prefs for test isolation.
+
+const serviceCache = new Map<string, GitServiceImpl>();
+
+function getOrCreateService(basePath: string): GitServiceImpl {
+  let svc = serviceCache.get(basePath);
+  if (!svc) {
+    svc = new GitServiceImpl(basePath, {});
+    serviceCache.set(basePath, svc);
+  }
+  return svc;
+}
+
+function getCurrentBranch(basePath: string): string {
+  return getOrCreateService(basePath).getCurrentBranch();
+}
+
+function getMainBranch(basePath: string): string {
+  return getOrCreateService(basePath).getMainBranch();
+}
+
+function getActiveSliceBranch(basePath: string): string | null {
+  return getOrCreateService(basePath).getActiveSliceBranch();
+}
+
+function isOnSliceBranch(basePath: string): boolean {
+  return SLICE_BRANCH_RE.test(getCurrentBranch(basePath));
+}
+
+function ensureSliceBranch(basePath: string, milestoneId: string, sliceId: string): boolean {
+  return getOrCreateService(basePath).ensureSliceBranch(milestoneId, sliceId);
+}
+
+function switchToMain(basePath: string): void {
+  getOrCreateService(basePath).switchToMain();
+}
+
+function mergeSliceToMain(basePath: string, milestoneId: string, sliceId: string, sliceTitle: string) {
+  return getOrCreateService(basePath).mergeSliceToMain(milestoneId, sliceId, sliceTitle);
+}
+
+function autoCommitCurrentBranch(basePath: string, unitType: string, unitId: string): string | null {
+  return getOrCreateService(basePath).autoCommit(unitType, unitId);
+}
 
 let passed = 0;
 let failed = 0;

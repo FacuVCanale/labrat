@@ -4,24 +4,82 @@ import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
 
 import {
-  autoCommitCurrentBranch,
-  captureIntegrationBranch,
   detectWorktreeName,
-  ensureSliceBranch,
-  getActiveSliceBranch,
-  getCurrentBranch,
-  getMainBranch,
   getSliceBranchName,
-  isOnSliceBranch,
-  mergeSliceToMain,
   parseSliceBranch,
-  setActiveMilestoneId,
   SLICE_BRANCH_RE,
-  switchToMain,
 } from "../worktree.ts";
-import { readIntegrationBranch } from "../git-service.ts";
+import { GitServiceImpl, readIntegrationBranch, writeIntegrationBranch } from "../git-service.ts";
 import { deriveState } from "../state.ts";
 import { indexWorkspace } from "../workspace-index.ts";
+
+// ─── Service-based helpers (bypass global preferences) ─────────────────────
+// The facade functions in worktree.ts load global preferences (~/.gsd/preferences.md)
+// which may override main_branch. These tests create isolated temp repos and need
+// to use GitServiceImpl directly with empty prefs for test isolation.
+
+function createService(basePath: string): GitServiceImpl {
+  return new GitServiceImpl(basePath, {});
+}
+
+// Thin wrappers that mirror the facade but use isolated service instances
+function getCurrentBranch(basePath: string): string {
+  return createService(basePath).getCurrentBranch();
+}
+
+function getMainBranch(basePath: string): string {
+  return createService(basePath).getMainBranch();
+}
+
+function getActiveSliceBranch(basePath: string): string | null {
+  return createService(basePath).getActiveSliceBranch();
+}
+
+function isOnSliceBranch(basePath: string): boolean {
+  return SLICE_BRANCH_RE.test(getCurrentBranch(basePath));
+}
+
+function autoCommitCurrentBranch(basePath: string, unitType: string, unitId: string): string | null {
+  return createService(basePath).autoCommit(unitType, unitId);
+}
+
+// Service cache per basePath for operations that need milestone state
+const serviceCache = new Map<string, GitServiceImpl>();
+
+function getOrCreateService(basePath: string): GitServiceImpl {
+  let svc = serviceCache.get(basePath);
+  if (!svc) {
+    svc = new GitServiceImpl(basePath, {});
+    serviceCache.set(basePath, svc);
+  }
+  return svc;
+}
+
+function setActiveMilestoneId(basePath: string, milestoneId: string | null): void {
+  getOrCreateService(basePath).setMilestoneId(milestoneId);
+}
+
+function getMainBranchWithMilestone(basePath: string): string {
+  return getOrCreateService(basePath).getMainBranch();
+}
+
+function ensureSliceBranch(basePath: string, milestoneId: string, sliceId: string): boolean {
+  return getOrCreateService(basePath).ensureSliceBranch(milestoneId, sliceId);
+}
+
+function switchToMain(basePath: string): void {
+  getOrCreateService(basePath).switchToMain();
+}
+
+function mergeSliceToMain(basePath: string, milestoneId: string, sliceId: string, sliceTitle: string) {
+  return getOrCreateService(basePath).mergeSliceToMain(milestoneId, sliceId, sliceTitle);
+}
+
+function captureIntegrationBranch(basePath: string, milestoneId: string): void {
+  const svc = getOrCreateService(basePath);
+  const current = svc.getCurrentBranch();
+  writeIntegrationBranch(basePath, milestoneId, current);
+}
 
 let passed = 0;
 let failed = 0;
@@ -365,12 +423,12 @@ async function main(): Promise<void> {
 
     // Without milestone set, getMainBranch returns "main"
     setActiveMilestoneId(repo, null);
-    assertEq(getMainBranch(repo), "main",
+    assertEq(getMainBranchWithMilestone(repo), "main",
       "getMainBranch returns main without milestone set");
 
     // With milestone set, getMainBranch returns feature branch
     setActiveMilestoneId(repo, "M001");
-    assertEq(getMainBranch(repo), "my-feature",
+    assertEq(getMainBranchWithMilestone(repo), "my-feature",
       "getMainBranch returns integration branch with milestone set");
 
     rmSync(repo, { recursive: true, force: true });
@@ -402,7 +460,7 @@ async function main(): Promise<void> {
     captureIntegrationBranch(repo, "M001");
     setActiveMilestoneId(repo, "M001");
 
-    assertEq(getMainBranch(repo), "feature/big-change",
+    assertEq(getMainBranchWithMilestone(repo), "feature/big-change",
       "multi: getMainBranch returns feature branch");
 
     // ── S01 lifecycle ──────────────────────────────────────────────────
@@ -500,12 +558,12 @@ async function main(): Promise<void> {
 
     // Simulate "restart" — clear milestone ID (fresh service instance)
     setActiveMilestoneId(repo, null);
-    assertEq(getMainBranch(repo), "main",
+    assertEq(getMainBranchWithMilestone(repo), "main",
       "resume: getMainBranch returns main when milestone cleared");
 
     // Re-set milestone ID (what auto.ts does on resume)
     setActiveMilestoneId(repo, "M001");
-    assertEq(getMainBranch(repo), "my-feature",
+    assertEq(getMainBranchWithMilestone(repo), "my-feature",
       "resume: getMainBranch returns feature branch after re-set");
 
     // Full lifecycle still works after resume
@@ -541,7 +599,7 @@ async function main(): Promise<void> {
     // Set milestone but DON'T capture integration branch (simulates old project)
     setActiveMilestoneId(repo, "M001");
 
-    assertEq(getMainBranch(repo), "main",
+    assertEq(getMainBranchWithMilestone(repo), "main",
       "compat: getMainBranch returns main without metadata");
 
     // Full lifecycle on main still works

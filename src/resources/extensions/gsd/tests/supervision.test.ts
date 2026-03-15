@@ -130,9 +130,14 @@ async function main(): Promise<void> {
         budgetPerExperiment: 1.0,
       });
 
+      // Commit .gsd/ files separately so that reverting the experiment commit
+      // does not remove the slice directory (which appendExperimentLog needs).
+      spawnSync('git', ['add', '.gsd'], { cwd: dir });
+      spawnSync('git', ['commit', '-m', 'chore: add campaign config'], { cwd: dir });
+
       // Make a change and commit so there's something to eval
       writeFileSync(join(dir, 'init.txt'), 'modified');
-      spawnSync('git', ['add', '.'], { cwd: dir });
+      spawnSync('git', ['add', 'init.txt'], { cwd: dir });
       spawnSync('git', ['commit', '-m', 'experiment(E001): test change'], { cwd: dir });
       const commitHash = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf-8' }).stdout.trim();
 
