@@ -14,7 +14,104 @@ Guidelines:
 
 ## Active
 
-(none)
+### R027 — Compute Backend Interface
+- Class: core-capability
+- Status: validated
+- Description: A pluggable `ComputeBackend` interface that takes code state (git ref) + eval command + timeout → returns stdout/stderr/exit code/timing. Local subprocess is the default backend. All backends implement this same contract.
+- Why it matters: This is the abstraction that decouples eval execution from the orchestrator. Without it, every new compute target requires modifying the eval pipeline.
+- Source: user
+- Primary owning slice: M004/S01
+- Supporting slices: none
+- Validation: M004/S01 — ComputeBackend interface with LocalBackend implementation, resolveBackend() factory with exhaustive type checking, 45 contract/integration tests proving interface contract, env merging, factory routing, and dispatch parity
+- Notes: Interface must produce the same `RunEvalResult` shape as the existing `runEval()`. LocalBackend wraps current `spawnSync` logic.
+
+### R028 — SSH Compute Backend
+- Class: core-capability
+- Status: active
+- Description: SSH into a remote host, git pull the experiment branch, run the eval command, stream back stdout/stderr. Uses native `ssh` binary with ControlMaster for connection reuse.
+- Why it matters: SSH is the universal option — every GPU box, every cloud VM, every lab machine.
+- Source: user
+- Primary owning slice: M004/S03
+- Supporting slices: M004/S02
+- Validation: unmapped
+- Notes: Depends on git code sync (R032) to push branch before SSH eval.
+
+### R029 — Docker Compute Backend
+- Class: core-capability
+- Status: active
+- Description: Run eval inside a Docker container (local or remote Docker host). Mount repo or git clone inside container. Supports GPU passthrough via `--gpus` flag.
+- Why it matters: Containerized eval for reproducibility. Same interface for local Docker and remote Docker host via `docker -H`.
+- Source: user
+- Primary owning slice: M004/S04
+- Supporting slices: M004/S02
+- Validation: unmapped
+- Notes: Depends on git code sync (R032) for getting code into the container.
+
+### R030 — Eval Pipeline Integration
+- Class: integration
+- Status: validated
+- Description: `runEval()` in eval-runner.ts dispatches to the configured compute backend instead of `spawnSync()`. Transparent to all callers — same `RunEvalResult` shape returned.
+- Why it matters: The wiring point between the existing eval pipeline and the new backend abstraction. Must be invisible to the orchestrator.
+- Source: user
+- Primary owning slice: M004/S01
+- Supporting slices: M004/S05
+- Validation: M004/S01 — runExperimentPostProcess dispatches through resolveBackend(config.compute) → backend.runEval(); all 73 eval-runner tests pass unchanged proving transparent integration; 15 dispatch parity assertions
+- Notes: Absent `compute` config = local backend (zero-config backward compatibility).
+
+### R031 — Backend Configuration
+- Class: operability
+- Status: active
+- Description: `CampaignConfig.compute` optional field specifying backend type and backend-specific settings (host, image, repo URL, etc.). Absent = local.
+- Why it matters: Users need a clean way to tell Labrat "run eval on this backend" without modifying code.
+- Source: user
+- Primary owning slice: M004/S05
+- Supporting slices: M004/S01
+- Validation: unmapped
+- Notes: Config shape must be extensible for future backends (Modal, RunPod, Lambda).
+
+### R032 — Code Sync via Git
+- Class: core-capability
+- Status: active
+- Description: Before remote eval, push experiment branch to origin. Remote backend pulls the latest commit. Ensures code state on remote matches local HEAD.
+- Why it matters: Git is the transport — same mechanism for SSH and Docker. No separate file transfer needed.
+- Source: user
+- Primary owning slice: M004/S02
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Push is best-effort idempotent — if branch is already up to date, no-op.
+
+### R033 — Credential Management for Backends
+- Class: operability
+- Status: active
+- Description: SSH keys via ssh-agent/config, Docker auth via Docker config. No new credential storage — reuse existing OS mechanisms.
+- Why it matters: Users already have SSH keys and Docker credentials configured. Labrat should not invent its own credential store.
+- Source: inferred
+- Primary owning slice: M004/S05
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Credential errors must produce actionable messages ("SSH key not found", "Docker daemon not reachable").
+
+### R034 — Backend Failure Handling
+- Class: failure-visibility
+- Status: active
+- Description: Connection failures, timeouts, remote crashes handled gracefully. Backend errors produce discard decisions with clear error messages, not unhandled exceptions.
+- Why it matters: Overnight runs must survive remote failures without crashing the orchestrator.
+- Source: inferred
+- Primary owning slice: M004/S01
+- Supporting slices: M004/S03, M004/S04
+- Validation: unmapped
+- Notes: Backend errors are treated like eval failures — the experiment is discarded with a reason, and the loop continues.
+
+### R035 — Eval Timeout Forwarding
+- Class: operability
+- Status: active
+- Description: Campaign eval timeout is forwarded to the backend. SSH/Docker kill the remote process on timeout. Same timeout semantics as local.
+- Why it matters: Remote eval must respect the same timeout contract as local eval. Runaway remote processes must be killed.
+- Source: inferred
+- Primary owning slice: M004/S01
+- Supporting slices: M004/S03, M004/S04
+- Validation: unmapped
+- Notes: SSH uses `timeout` command on remote or signal-based kill. Docker uses `--stop-timeout` or container kill.
 
 ### R001 — GSD-2 Base & Upstream Tracking
 - Class: constraint
@@ -309,9 +406,63 @@ Guidelines:
 - Description: `discuss` command to redirect the campaign while it runs. Reprioritize experiments, add new ideas, skip unpromising directions.
 - Validation: M002/S03 — `steering.ts` module with atomic STEERING.json I/O, `checkSteeringDirective` facade in `dispatchNextUnit`, three directive types (refocus/skip_phase/stop) with graceful degradation. `showDiscuss` routes to `showSteering` when campaign active. 137 contract tests.
 
+### R027 — Compute Backend Interface
+- Class: core-capability
+- Status: validated
+- Description: A pluggable `ComputeBackend` interface that takes eval command + timeout → returns stdout/stderr/exit code/timing. Local subprocess is the default backend.
+- Validation: M004/S01 — ComputeBackend interface with LocalBackend, resolveBackend() factory with exhaustive type checking, 45 contract/integration tests
+
+### R030 — Eval Pipeline Integration
+- Class: integration
+- Status: validated
+- Description: `runEval()` in eval-runner.ts dispatches to the configured compute backend. Transparent to all callers — same `RunEvalResult` shape.
+- Validation: M004/S01 — runExperimentPostProcess dispatches through resolveBackend(config.compute); all 73 eval-runner tests pass unchanged; 15 dispatch parity assertions
+
 ## Deferred
 
-(none)
+### R036 — Modal Serverless GPU Backend
+- Class: core-capability
+- Status: deferred
+- Description: Serverless GPU compute via Modal. Sandbox.exec() with GPU selection, streaming stdout.
+- Why it matters: Developer-friendly serverless GPU — no infra management.
+- Source: research
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred — requires Python SDK wrapper or REST API. Interface designed to support it.
+
+### R037 — RunPod Serverless GPU Backend
+- Class: core-capability
+- Status: deferred
+- Description: Serverless GPU compute via RunPod REST API. Async job submission + polling.
+- Why it matters: REST-friendly serverless GPU accessible from TypeScript.
+- Source: research
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred — needs pre-deployed RunPod endpoint. Interface designed to support it.
+
+### R038 — AWS Lambda Backend
+- Class: core-capability
+- Status: deferred
+- Description: Compute dispatch via AWS Lambda invocation. SDK v3 InvokeCommand.
+- Why it matters: For quick eval tasks under 15 minutes on AWS infrastructure.
+- Source: user
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred — 15-minute hard ceiling makes it unsuitable for training. Good for fast evals only.
+
+### R039 — Kubernetes Job Backend
+- Class: core-capability
+- Status: deferred
+- Description: Compute dispatch via Kubernetes Job creation. kubectl or k8s API.
+- Why it matters: For users with existing k8s clusters.
+- Source: research
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Deferred — heavy setup, only worth it for existing k8s users.
 
 ## Out of Scope
 
@@ -370,6 +521,28 @@ Guidelines:
 - Validation: n/a
 - Notes: MLOps platforms already have alerting capabilities.
 
+### R040 — Backend Auto-Provisioning
+- Class: anti-feature
+- Status: out-of-scope
+- Description: Labrat automatically provisions remote infrastructure (spinning up VMs, creating Lambda functions, deploying Docker images).
+- Why it matters: Infrastructure provisioning is a separate concern. Users manage their own compute resources.
+- Source: research
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: n/a
+- Notes: Labrat connects to existing infrastructure, does not create it.
+
+### R041 — Multi-Backend Parallel Eval
+- Class: anti-feature
+- Status: out-of-scope
+- Description: Running eval across multiple backends simultaneously for a single experiment.
+- Why it matters: Adds massive complexity for marginal benefit. One backend per campaign is sufficient.
+- Source: research
+- Primary owning slice: none
+- Supporting slices: none
+- Validation: n/a
+- Notes: Different campaigns can use different backends.
+
 ## Traceability
 
 | ID | Class | Status | Primary owner | Supporting | Proof |
@@ -400,10 +573,25 @@ Guidelines:
 | R024 | differentiator | out-of-scope | none | none | n/a |
 | R025 | operability | out-of-scope | none | none | n/a |
 | R026 | operability | validated | M003/S01 | M003/S02, M003/S03 | S01+S02+S03 |
+| R027 | core-capability | validated | M004/S01 | none | M004/S01 |
+| R028 | core-capability | active | M004/S03 | M004/S02 | unmapped |
+| R029 | core-capability | active | M004/S04 | M004/S02 | unmapped |
+| R030 | integration | validated | M004/S01 | M004/S05 | M004/S01 |
+| R031 | operability | active | M004/S05 | M004/S01 | unmapped |
+| R032 | core-capability | active | M004/S02 | none | unmapped |
+| R033 | operability | active | M004/S05 | none | unmapped |
+| R034 | failure-visibility | active | M004/S01 | M004/S03, M004/S04 | unmapped |
+| R035 | operability | active | M004/S01 | M004/S03, M004/S04 | unmapped |
+| R036 | core-capability | deferred | none | none | unmapped |
+| R037 | core-capability | deferred | none | none | unmapped |
+| R038 | core-capability | deferred | none | none | unmapped |
+| R039 | core-capability | deferred | none | none | unmapped |
+| R040 | anti-feature | out-of-scope | none | none | n/a |
+| R041 | anti-feature | out-of-scope | none | none | n/a |
 
 ## Coverage Summary
 
-- Active requirements: 0
-- Mapped to slices: 0
-- Validated: 21
+- Active requirements: 7
+- Mapped to slices: 7
+- Validated: 23
 - Unmapped active requirements: 0

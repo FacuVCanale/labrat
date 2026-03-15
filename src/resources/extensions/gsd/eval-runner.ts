@@ -23,6 +23,7 @@ import type {
 import { revertExperiment } from './worktree.js';
 import { parseCampaignConfig } from './state.js';
 import { extractNumericDiffStat, computeSimplicityScore } from './simplicity-scorer.js';
+import { resolveBackend } from './compute-backend.js';
 
 // ─── Subprocess Execution ───────────────────────────────────────────────────
 
@@ -550,6 +551,9 @@ export function runExperimentPostProcess(opts: {
     return result;
   }
 
+  // Resolve compute backend from config (absent/local → LocalBackend)
+  const backend = resolveBackend(config.compute);
+
   const evalConfig = config.evalConfig;
   const numRuns = evalConfig.runs || 1;
 
@@ -592,7 +596,7 @@ export function runExperimentPostProcess(opts: {
   let lastStderr = '';
 
   for (let i = 0; i < numRuns; i++) {
-    const evalResult = runEval(evalConfig.command, evalConfig.timeout, basePath);
+    const evalResult = backend.runEval({ command: evalConfig.command, timeoutSecs: evalConfig.timeout, cwd: basePath });
 
     if (evalResult.timedOut) {
       lastTimedOut = true;

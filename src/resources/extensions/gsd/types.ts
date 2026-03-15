@@ -295,7 +295,14 @@ export interface CampaignConfig {
   };
   /** Optional structured research agenda with ordered phases. */
   agenda?: AgendaConfig;
+  /** Optional compute backend config. Absent = local execution. */
+  compute?: ComputeConfig;
 }
+
+// ─── Compute Backend Config ─────────────────────────────────────────────────
+
+/** Discriminated union for compute backend selection. Absent = local. */
+export type ComputeConfig = { type: 'local' };
 
 export interface ExperimentContext {
   experimentNumber: number;
