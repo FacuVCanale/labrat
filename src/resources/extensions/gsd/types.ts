@@ -304,7 +304,8 @@ export interface CampaignConfig {
 /** Discriminated union for compute backend selection. Absent = local. */
 export type ComputeConfig =
   | { type: 'local' }
-  | { type: 'ssh'; host: string; workDir: string; controlPath?: string };
+  | { type: 'ssh'; host: string; workDir: string; controlPath?: string }
+  | { type: 'docker'; image: string; gpus?: string; dockerHost?: string; volumes?: string[]; repoUrl?: string };
 
 export interface ExperimentContext {
   experimentNumber: number;

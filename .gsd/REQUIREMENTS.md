@@ -38,13 +38,13 @@ Guidelines:
 
 ### R029 — Docker Compute Backend
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Run eval inside a Docker container (local or remote Docker host). Mount repo or git clone inside container. Supports GPU passthrough via `--gpus` flag.
 - Why it matters: Containerized eval for reproducibility. Same interface for local Docker and remote Docker host via `docker -H`.
 - Source: user
 - Primary owning slice: M004/S04
 - Supporting slices: M004/S02
-- Validation: unmapped
+- Validation: M004/S04 — DockerBackend with local (volume mount) and remote (git clone) paths, GPU passthrough via --gpus flag, Docker-specific exit code mapping (124/125/126/127), env forwarding, safety-net timeout. 79 contract tests via mock docker binary.
 - Notes: Depends on git code sync (R032) for getting code into the container.
 
 ### R030 — Eval Pipeline Integration
@@ -430,6 +430,12 @@ Guidelines:
 - Description: SSH into a remote host, git pull the experiment branch, run the eval command, stream back stdout/stderr. Uses native `ssh` binary with ControlMaster for connection reuse.
 - Validation: M004/S03 — SSHBackend via native ssh with ControlMaster, code sync via git, timeout enforcement, structured error mapping. 52 contract tests against real localhost SSH.
 
+### R029 — Docker Compute Backend
+- Class: core-capability
+- Status: validated
+- Description: Run eval inside a Docker container (local or remote Docker host). Mount repo or git clone inside container. Supports GPU passthrough via `--gpus` flag.
+- Validation: M004/S04 — DockerBackend with local (volume mount) and remote (git clone) paths, GPU passthrough, Docker-specific exit code mapping (124/125/126/127), env forwarding, safety-net timeout. 79 contract tests via mock docker binary.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -587,7 +593,7 @@ Guidelines:
 | R026 | operability | validated | M003/S01 | M003/S02, M003/S03 | S01+S02+S03 |
 | R027 | core-capability | validated | M004/S01 | none | M004/S01 |
 | R028 | core-capability | validated | M004/S03 | M004/S02 | M004/S03 |
-| R029 | core-capability | active | M004/S04 | M004/S02 | unmapped |
+| R029 | core-capability | validated | M004/S04 | M004/S02 | M004/S04 |
 | R030 | integration | validated | M004/S01 | M004/S05 | M004/S01 |
 | R031 | operability | active | M004/S05 | M004/S01 | unmapped |
 | R032 | core-capability | validated | M004/S02 | none | M004/S02 |
@@ -603,7 +609,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 5
-- Mapped to slices: 5
-- Validated: 25
+- Active requirements: 4
+- Mapped to slices: 4
+- Validated: 26
 - Unmapped active requirements: 0

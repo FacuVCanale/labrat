@@ -14,6 +14,7 @@ import { spawnSync } from 'node:child_process';
 import type { RunEvalResult } from './eval-runner.js';
 import type { ComputeConfig } from './types.js';
 import { SSHBackend } from './ssh-backend.js';
+import { DockerBackend } from './docker-backend.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,10 @@ export function resolveBackend(config?: ComputeConfig): ComputeBackend {
 
   if (config.type === 'ssh') {
     return new SSHBackend(config);
+  }
+
+  if (config.type === 'docker') {
+    return new DockerBackend(config);
   }
 
   // Exhaustiveness guard — future types will add cases above
