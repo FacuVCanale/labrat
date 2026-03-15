@@ -32,6 +32,7 @@ All 30 requirements validated across M001–M004.
 - **Evaluation**: User-defined shell command, JSON stdout, multi-metric with weighted composite scoring
 - **Git strategy**: Branch per campaign, atomic commits per experiment, revert on discard
 - **MLOps**: Live integration with W&B/MLFlow via REST API — Labrat logs orchestration metadata, user's eval scripts handle domain tracking natively
+- **Compute backends**: Pluggable `ComputeBackend` interface — LocalBackend (default), SSHBackend (native ssh + ControlMaster), DockerBackend (GPU passthrough). Git push syncs code before remote eval. Pre-flight checks + error wrapping → clean discards on failure.
 - **LLM providers**: Full multi-provider support inherited from GSD-2
 
 ## Capability Contract
