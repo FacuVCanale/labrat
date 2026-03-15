@@ -4,8 +4,8 @@
 
 **The evolution of [Get Shit Done](https://github.com/gsd-build/get-shit-done) — now a real coding agent.**
 
-[![npm version](https://img.shields.io/npm/v/gsd-pi?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/gsd-pi)
-[![npm downloads](https://img.shields.io/npm/dm/gsd-pi?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/gsd-pi)
+[![npm version](https://img.shields.io/npm/v/labrat?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/labrat)
+[![npm downloads](https://img.shields.io/npm/dm/labrat?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/labrat)
 [![GitHub stars](https://img.shields.io/github/stars/gsd-build/GSD-2?style=for-the-badge&logo=github&color=181717)](https://github.com/gsd-build/GSD-2)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
@@ -15,7 +15,7 @@ This version is different. GSD is now a standalone CLI built on the [Pi SDK](htt
 
 One command. Walk away. Come back to a built project with clean git history.
 
-<pre><code>npm install -g gsd-pi</code></pre>
+<pre><code>npm install -g labrat</code></pre>
 
 </div>
 
@@ -144,7 +144,7 @@ Step mode is the on-ramp. Auto mode is the highway.
 ### Install
 
 ```bash
-npm install -g gsd-pi
+npm install -g labrat
 ```
 
 ### Log in to a provider
@@ -460,6 +460,6 @@ Use expensive models where quality matters (planning, complex execution) and che
 
 **The original GSD showed what was possible. This version delivers it.**
 
-**`npm install -g gsd-pi && gsd`**
+**`npm install -g labrat && gsd`**
 
 </div>

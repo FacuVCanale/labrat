@@ -65,7 +65,7 @@ function loadNative(): Record<string, unknown> {
     `Failed to load gsd_engine native addon for ${platformTag}.\n\n` +
       `Tried:\n${details}\n\n` +
       `Supported platforms: ${supportedPlatforms.join(", ")}\n` +
-      `If your platform is listed, try reinstalling: npm i -g gsd-pi\n` +
+      `If your platform is listed, try reinstalling: npm i -g labrat\n` +
       `Otherwise, please open an issue: https://github.com/gsd-build/gsd-2/issues`,
   );
 }

@@ -1,7 +1,6 @@
 import { DefaultResourceLoader } from '@gsd/pi-coding-agent'
-import { homedir } from 'node:os'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // Resolves to the bundled src/resources/ inside the npm package at runtime:
@@ -68,16 +67,12 @@ export function discoverExtensionEntryPaths(extensionsDir: string): string[] {
   return discovered
 }
 
-function getExtensionKey(entryPath: string, extensionsDir: string): string {
-  const relPath = relative(extensionsDir, entryPath)
-  return relPath.split(/[\\/]/)[0]
-}
-
 /**
- * Syncs all bundled resources to agentDir (~/.gsd/agent/) on every launch.
+ * Syncs all bundled resources to agentDir (~/.labrat/agent/) on every launch.
  *
  * - extensions/ → ~/.labrat/agent/extensions/   (always overwrite — ensures updates ship on next launch)
  * - agents/     → ~/.labrat/agent/agents/        (always overwrite)
+ * - skills/     → ~/.labrat/agent/skills/        (always overwrite)
  * - AGENTS.md   → ~/.labrat/agent/AGENTS.md      (always overwrite)
  * - GSD-WORKFLOW.md is read directly from bundled path via LABRAT_WORKFLOW_PATH env var
  *
@@ -85,7 +80,7 @@ function getExtensionKey(entryPath: string, extensionsDir: string): string {
  * User customizations should go in ~/.labrat/agent/extensions/ subdirs with unique names,
  * not by editing the labrat-managed files.
  *
- * Inspectable: `ls ~/.gsd/agent/extensions/`
+ * Inspectable: `ls ~/.labrat/agent/extensions/`
  */
 export function initResources(agentDir: string): void {
   const destExtensions = join(agentDir, 'extensions')
@@ -132,22 +127,11 @@ export function initResources(agentDir: string): void {
 }
 
 /**
- * Constructs a DefaultResourceLoader that loads extensions from both
- * ~/.gsd/agent/extensions/ (GSD's default) and ~/.pi/agent/extensions/ (pi's default).
- * This allows users to use extensions from either location.
+ * Constructs a DefaultResourceLoader that loads extensions from ~/.labrat/agent/extensions/.
+ * Labrat's extensions are fully independent from pi's ~/.pi/ directory.
  */
 export function buildResourceLoader(agentDir: string): DefaultResourceLoader {
-  const piAgentDir = join(homedir(), '.pi', 'agent')
-  const piExtensionsDir = join(piAgentDir, 'extensions')
-  const bundledKeys = new Set(
-    discoverExtensionEntryPaths(bundledExtensionsDir).map((entryPath) => getExtensionKey(entryPath, bundledExtensionsDir)),
-  )
-  const piExtensionPaths = discoverExtensionEntryPaths(piExtensionsDir).filter(
-    (entryPath) => !bundledKeys.has(getExtensionKey(entryPath, piExtensionsDir)),
-  )
-
   return new DefaultResourceLoader({
     agentDir,
-    additionalExtensionPaths: piExtensionPaths,
   })
 }

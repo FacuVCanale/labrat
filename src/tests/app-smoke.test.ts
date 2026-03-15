@@ -150,53 +150,28 @@ test("initResources syncs extensions, agents, and skills to target dir", async (
 // 4. wizard loadStoredEnvKeys hydration
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("buildResourceLoader expands ~/.pi extension directories into entry files", async () => {
-  const originalHome = process.env.HOME;
-  const tmp = mkdtempSync(join(tmpdir(), "gsd-pi-ext-test-"));
-  const fakeHome = join(tmp, "home");
+test("buildResourceLoader loads extensions only from agentDir (no ~/.pi cross-loading)", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "labrat-ext-test-"));
   const fakeAgentDir = join(tmp, "agent");
-  const piExtensionsDir = join(fakeHome, ".pi", "agent", "extensions");
-  mkdirSync(piExtensionsDir, { recursive: true });
-  mkdirSync(fakeAgentDir, { recursive: true });
+  const extensionsDir = join(fakeAgentDir, "extensions");
+  mkdirSync(extensionsDir, { recursive: true });
 
   writeFileSync(
-    join(piExtensionsDir, "top-level.ts"),
+    join(extensionsDir, "top-level.ts"),
     "export default function(pi){ pi.on('agent_start', () => {}); }\n",
   );
-
-  const packagedDir = join(piExtensionsDir, "packaged-ext");
-  mkdirSync(packagedDir, { recursive: true });
-  writeFileSync(
-    join(packagedDir, "package.json"),
-    JSON.stringify({ pi: { extensions: ["./custom-entry.ts"] } }, null, 2),
-  );
-  writeFileSync(
-    join(packagedDir, "custom-entry.ts"),
-    "export default function(pi){ pi.on('agent_start', () => {}); }\n",
-  );
-
-  process.env.HOME = fakeHome;
 
   try {
     const { buildResourceLoader } = await import("../resource-loader.ts");
     const loader = buildResourceLoader(fakeAgentDir);
     await loader.reload();
-    const { extensions, errors } = loader.getExtensions();
+    const { extensions } = loader.getExtensions();
 
     assert.ok(
       extensions.some((ext) => ext.path.endsWith("top-level.ts")),
-      "loads top-level ~/.pi extension files",
-    );
-    assert.ok(
-      extensions.some((ext) => ext.path.endsWith("packaged-ext/custom-entry.ts")),
-      "loads packaged ~/.pi extensions via pi.extensions manifest",
-    );
-    assert.ok(
-      !errors.some((err) => err.path === piExtensionsDir),
-      "does not try to load the ~/.pi/agent/extensions directory itself as a module",
+      "loads extensions from agentDir",
     );
   } finally {
-    if (originalHome) process.env.HOME = originalHome; else delete process.env.HOME;
     rmSync(tmp, { recursive: true, force: true });
   }
 });

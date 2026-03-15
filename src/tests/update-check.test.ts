@@ -306,7 +306,7 @@ test('checkForUpdates handles network timeout gracefully', async () => {
 
 test('checkForUpdates handles missing version field in response', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'gsd-update-'))
-  const registry = await startMockRegistry({ name: 'gsd-pi' }) // no version field
+  const registry = await startMockRegistry({ name: 'labrat' }) // no version field
   try {
     let called = false
 
