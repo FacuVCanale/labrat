@@ -59,7 +59,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Git Code Sync** `risk:medium` `depends:[S01]`
   > After this: before remote eval, experiment branch is pushed to origin; `syncCode()` helper verifies the push succeeded and the remote ref matches local HEAD (proven by contract tests with git subprocess).
 
-- [ ] **S03: SSH Compute Backend** `risk:high` `depends:[S01,S02]`
+- [x] **S03: SSH Compute Backend** `risk:high` `depends:[S01,S02]`
   > After this: `SSHBackend` connects to a remote host via native ssh, pulls experiment branch, runs eval command, returns stdout/stderr/exit code/timing; timeout kills remote process; connection errors produce discard (proven by contract tests).
 
 - [ ] **S04: Docker Compute Backend** `risk:medium` `depends:[S01,S02]`

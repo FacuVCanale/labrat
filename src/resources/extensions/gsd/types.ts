@@ -302,7 +302,9 @@ export interface CampaignConfig {
 // ─── Compute Backend Config ─────────────────────────────────────────────────
 
 /** Discriminated union for compute backend selection. Absent = local. */
-export type ComputeConfig = { type: 'local' };
+export type ComputeConfig =
+  | { type: 'local' }
+  | { type: 'ssh'; host: string; workDir: string; controlPath?: string };
 
 export interface ExperimentContext {
   experimentNumber: number;

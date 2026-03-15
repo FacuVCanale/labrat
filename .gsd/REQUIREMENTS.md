@@ -27,13 +27,13 @@ Guidelines:
 
 ### R028 — SSH Compute Backend
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: SSH into a remote host, git pull the experiment branch, run the eval command, stream back stdout/stderr. Uses native `ssh` binary with ControlMaster for connection reuse.
 - Why it matters: SSH is the universal option — every GPU box, every cloud VM, every lab machine.
 - Source: user
 - Primary owning slice: M004/S03
 - Supporting slices: M004/S02
-- Validation: unmapped
+- Validation: M004/S03 — SSHBackend connects via native ssh, syncs code via pushExperimentBranch(), runs eval, returns structured RunEvalResult. 52 contract tests against real localhost SSH prove: successful eval, failure forwarding, remote timeout (exit 124), safety-net timeout, connection error (exit 255), env forwarding, code sync, ControlMaster reuse, and factory routing.
 - Notes: Depends on git code sync (R032) to push branch before SSH eval.
 
 ### R029 — Docker Compute Backend
@@ -424,6 +424,12 @@ Guidelines:
 - Description: Before remote eval, push experiment branch to origin. Remote backend pulls the latest commit. Ensures code state on remote matches local HEAD.
 - Validation: M004/S02 — pushExperimentBranch() pushes current branch to remote, verifies via ls-remote. 7 scenarios, 23 assertions.
 
+### R028 — SSH Compute Backend
+- Class: core-capability
+- Status: validated
+- Description: SSH into a remote host, git pull the experiment branch, run the eval command, stream back stdout/stderr. Uses native `ssh` binary with ControlMaster for connection reuse.
+- Validation: M004/S03 — SSHBackend via native ssh with ControlMaster, code sync via git, timeout enforcement, structured error mapping. 52 contract tests against real localhost SSH.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -580,7 +586,7 @@ Guidelines:
 | R025 | operability | out-of-scope | none | none | n/a |
 | R026 | operability | validated | M003/S01 | M003/S02, M003/S03 | S01+S02+S03 |
 | R027 | core-capability | validated | M004/S01 | none | M004/S01 |
-| R028 | core-capability | active | M004/S03 | M004/S02 | unmapped |
+| R028 | core-capability | validated | M004/S03 | M004/S02 | M004/S03 |
 | R029 | core-capability | active | M004/S04 | M004/S02 | unmapped |
 | R030 | integration | validated | M004/S01 | M004/S05 | M004/S01 |
 | R031 | operability | active | M004/S05 | M004/S01 | unmapped |
@@ -597,7 +603,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 6
-- Mapped to slices: 6
-- Validated: 24
+- Active requirements: 5
+- Mapped to slices: 5
+- Validated: 25
 - Unmapped active requirements: 0

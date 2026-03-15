@@ -11,8 +11,9 @@
 
 import { spawnSync } from 'node:child_process';
 
-import type { RunEvalResult } from './types.js';
+import type { RunEvalResult } from './eval-runner.js';
 import type { ComputeConfig } from './types.js';
+import { SSHBackend } from './ssh-backend.js';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -70,6 +71,10 @@ export class LocalBackend implements ComputeBackend {
 export function resolveBackend(config?: ComputeConfig): ComputeBackend {
   if (config === undefined || config.type === 'local') {
     return new LocalBackend();
+  }
+
+  if (config.type === 'ssh') {
+    return new SSHBackend(config);
   }
 
   // Exhaustiveness guard — future types will add cases above

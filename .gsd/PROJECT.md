@@ -20,7 +20,7 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 The full research engine is operational: GSD-2 v2.10.6 rebranded as Labrat with dual-mode state machine (`experimenting` phase alongside development flow, triggered by CAMPAIGN.json). Eval pipeline handles subprocess execution with timeout, JSON metric parsing, multi-run median aggregation, direction-aware weighted composite scoring, simplicity-aware keep/discard decisions, and automatic git revert. Research prompts deliver five-section fresh context per experiment with optional phase-aware and steering-aware context. Crash recovery detects and reverts orphan experiment commits on restart. Budget guards (per-experiment and campaign-level) pause before overspending. Live W&B and MLFlow REST integration with circuit breaker resilience. CLI (`labrat start`, `labrat plan`, `labrat sync`, `labrat report`) and 7-section terminal morning report operational. Mid-campaign steering via `labrat discuss` writes directives consumed at experiment boundaries. Upstream sync identifies, categorizes, applies, and adapts GSD-2 improvements.
 
-All 24 requirements validated across M001–M004/S02.
+All 25 requirements validated across M001–M004/S03.
 
 ## Architecture / Key Patterns
 
