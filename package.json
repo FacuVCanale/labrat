@@ -1,23 +1,23 @@
 {
-  "name": "labrat",
+  "name": "nightshift",
   "version": "2.10.6",
-  "description": "Labrat — research-oriented coding agent",
+  "description": "NightShift — research-oriented coding agent",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/claude/labrat.git"
+    "url": "git+https://github.com/claude/nightshift.git"
   },
-  "homepage": "https://github.com/claude/labrat#readme",
+  "homepage": "https://github.com/claude/nightshift#readme",
   "bugs": {
-    "url": "https://github.com/claude/labrat/issues"
+    "url": "https://github.com/claude/nightshift/issues"
   },
   "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "bin": {
-    "labrat": "dist/loader.js",
-    "labrat-cli": "dist/loader.js"
+    "nightshift": "dist/loader.js",
+    "nightshift-cli": "dist/loader.js"
   },
   "files": [
     "dist",
@@ -29,8 +29,8 @@
     "README.md"
   ],
   "piConfig": {
-    "name": "labrat",
-    "configDir": ".labrat"
+    "name": "nightshift",
+    "configDir": ".nightshift"
   },
   "engines": {
     "node": ">=20.6.0"

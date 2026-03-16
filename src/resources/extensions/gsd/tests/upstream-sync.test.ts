@@ -19,8 +19,8 @@ import {
   parseGitLog,
   fetchUpstreamCommits,
   getConflictFiles,
-  getLabratModifiedFiles,
-  clearLabratFilesCache,
+  getNightShiftModifiedFiles,
+  clearNightShiftFilesCache,
   readSyncState,
   writeSyncState,
   filterNewCommits,
@@ -119,14 +119,14 @@ async function main(): Promise<void> {
     assertEq(result, 'infrastructure', 'packages/* only → infrastructure');
   }
 
-  // Labrat-added file only (steering.ts) → development-specific
+  // NightShift-added file only (steering.ts) → development-specific
   {
     const commit = makeCommit({ filesChanged: ['src/resources/extensions/gsd/steering.ts'] });
     const result = categorizeCommit(commit);
     assertEq(result, 'development-specific', 'steering.ts only → development-specific');
   }
 
-  // Multiple Labrat-added files → development-specific
+  // Multiple NightShift-added files → development-specific
   {
     const commit = makeCommit({
       filesChanged: [
@@ -135,10 +135,10 @@ async function main(): Promise<void> {
       ],
     });
     const result = categorizeCommit(commit);
-    assertEq(result, 'development-specific', 'multiple Labrat-added files → development-specific');
+    assertEq(result, 'development-specific', 'multiple NightShift-added files → development-specific');
   }
 
-  // Labrat test files → development-specific
+  // NightShift test files → development-specific
   {
     const commit = makeCommit({
       filesChanged: ['src/resources/extensions/gsd/tests/eval-runner.test.ts'],
@@ -147,7 +147,7 @@ async function main(): Promise<void> {
     assertEq(result, 'development-specific', 'test file → development-specific');
   }
 
-  // Labrat prompts directory → development-specific
+  // NightShift prompts directory → development-specific
   {
     const commit = makeCommit({
       filesChanged: ['src/resources/extensions/gsd/prompts/experiment.md'],
@@ -343,16 +343,16 @@ async function main(): Promise<void> {
 
   console.log('\n=== conflict detection ===');
 
-  // Commit touching file Labrat also modified → conflict reported
+  // Commit touching file NightShift also modified → conflict reported
   {
     const { repo, upstream } = setupRepoWithUpstream();
     try {
-      // Modify a file in Labrat (the working repo)
-      writeFileSync(join(repo, 'README.md'), '# Modified by Labrat\n');
+      // Modify a file in NightShift (the working repo)
+      writeFileSync(join(repo, 'README.md'), '# Modified by NightShift\n');
       run('git add .', repo);
-      run("git commit -m 'labrat change'", repo);
+      run("git commit -m 'nightshift change'", repo);
 
-      clearLabratFilesCache();
+      clearNightShiftFilesCache();
       const conflicts = getConflictFiles(repo, ['README.md', 'other.ts']);
       assert(conflicts.includes('README.md'), 'conflict: README.md detected as conflicting');
       assert(!conflicts.includes('other.ts'), 'conflict: other.ts not in conflicts');
@@ -362,11 +362,11 @@ async function main(): Promise<void> {
     }
   }
 
-  // Commit touching file Labrat hasn't modified → no conflict
+  // Commit touching file NightShift hasn't modified → no conflict
   {
     const { repo, upstream } = setupRepoWithUpstream();
     try {
-      clearLabratFilesCache();
+      clearNightShiftFilesCache();
       const conflicts = getConflictFiles(repo, ['packages/core/new-file.ts']);
       assertEq(conflicts.length, 0, 'no conflict: untouched file has no conflicts');
     } finally {
@@ -375,20 +375,20 @@ async function main(): Promise<void> {
     }
   }
 
-  // getLabratModifiedFiles returns correct set
+  // getNightShiftModifiedFiles returns correct set
   {
     const { repo, upstream } = setupRepoWithUpstream();
     try {
       writeFileSync(join(repo, 'file-a.ts'), 'a\n');
       writeFileSync(join(repo, 'file-b.ts'), 'b\n');
       run('git add .', repo);
-      run("git commit -m 'labrat adds files'", repo);
+      run("git commit -m 'nightshift adds files'", repo);
 
-      clearLabratFilesCache();
-      const modified = getLabratModifiedFiles(repo);
-      assert(modified.has('file-a.ts'), 'labrat modified: file-a.ts present');
-      assert(modified.has('file-b.ts'), 'labrat modified: file-b.ts present');
-      assert(!modified.has('README.md'), 'labrat modified: README.md not present (unchanged)');
+      clearNightShiftFilesCache();
+      const modified = getNightShiftModifiedFiles(repo);
+      assert(modified.has('file-a.ts'), 'nightshift modified: file-a.ts present');
+      assert(modified.has('file-b.ts'), 'nightshift modified: file-b.ts present');
+      assert(!modified.has('README.md'), 'nightshift modified: README.md not present (unchanged)');
     } finally {
       rmSync(repo, { recursive: true, force: true });
       rmSync(upstream, { recursive: true, force: true });
@@ -638,10 +638,10 @@ async function main(): Promise<void> {
   {
     const { repo, upstream } = setupRepoWithUpstream();
     try {
-      // Modify README.md in labrat (work repo)
-      writeFileSync(join(repo, 'README.md'), '# Modified by Labrat\nLabrat content here\n');
+      // Modify README.md in nightshift (work repo)
+      writeFileSync(join(repo, 'README.md'), '# Modified by NightShift\nNightShift content here\n');
       run('git add .', repo);
-      run("git commit -m 'labrat: modify README'", repo);
+      run("git commit -m 'nightshift: modify README'", repo);
 
       // Modify same file in upstream (conflicting change)
       writeFileSync(join(upstream, 'README.md'), '# Modified by Upstream\nUpstream content here\n');
@@ -668,7 +668,7 @@ async function main(): Promise<void> {
         if (readmeConflict) {
           assert(readmeConflict.withMarkers.includes('<<<<<<<'), 'conflict apply: withMarkers has <<<<<<< markers');
           assert(readmeConflict.withMarkers.includes('>>>>>>>'), 'conflict apply: withMarkers has >>>>>>> markers');
-          assert(readmeConflict.labratVersion.includes('Labrat'), 'conflict apply: labratVersion has Labrat content');
+          assert(readmeConflict.nightshiftVersion.includes('NightShift'), 'conflict apply: nightshiftVersion has NightShift content');
           assert(readmeConflict.upstreamPatch.length > 0, 'conflict apply: upstreamPatch is non-empty');
         }
       }
@@ -792,14 +792,14 @@ async function main(): Promise<void> {
 
   console.log('\n=== S02: getConflictContext structure ===');
 
-  // getConflictContext: verify structure has withMarkers, labratVersion, upstreamPatch fields
+  // getConflictContext: verify structure has withMarkers, nightshiftVersion, upstreamPatch fields
   {
     const { repo, upstream } = setupRepoWithUpstream();
     try {
       // Create a conflict scenario
-      writeFileSync(join(repo, 'README.md'), '# Labrat version\nLocal only content\n');
+      writeFileSync(join(repo, 'README.md'), '# NightShift version\nLocal only content\n');
       run('git add .', repo);
-      run("git commit -m 'labrat: edit README'", repo);
+      run("git commit -m 'nightshift: edit README'", repo);
 
       writeFileSync(join(upstream, 'README.md'), '# Upstream version\nRemote only content\n');
       run('git add .', upstream);
@@ -834,8 +834,8 @@ async function main(): Promise<void> {
         if (readme) {
           assert(typeof readme.withMarkers === 'string', 'conflict context: withMarkers is string');
           assert(readme.withMarkers.includes('<<<<<<<'), 'conflict context: withMarkers has conflict markers');
-          assert(typeof readme.labratVersion === 'string', 'conflict context: labratVersion is string');
-          assert(readme.labratVersion.includes('Labrat'), 'conflict context: labratVersion has Labrat content');
+          assert(typeof readme.nightshiftVersion === 'string', 'conflict context: nightshiftVersion is string');
+          assert(readme.nightshiftVersion.includes('NightShift'), 'conflict context: nightshiftVersion has NightShift content');
           assert(typeof readme.upstreamPatch === 'string', 'conflict context: upstreamPatch is string');
           assert(readme.upstreamPatch.length > 0, 'conflict context: upstreamPatch non-empty');
         }
@@ -892,7 +892,7 @@ async function main(): Promise<void> {
       conflictingFiles: [{
         path: 'src/retry.ts',
         withMarkers: '<<<<<<< HEAD\nold\n=======\nnew\n>>>>>>> abc123',
-        labratVersion: 'const retry = true;',
+        nightshiftVersion: 'const retry = true;',
         upstreamPatch: '--- a/src/retry.ts\n+++ b/src/retry.ts\n@@ -1 +1 @@\n-old\n+new',
       }],
     };
@@ -901,7 +901,7 @@ async function main(): Promise<void> {
     assert(prompt.includes('fix: update retry logic'), 'prompt: contains subject');
     assert(prompt.includes('src/retry.ts'), 'prompt: contains file path');
     assert(prompt.includes('<<<<<<<'), 'prompt: contains merge markers');
-    assert(prompt.includes('const retry = true'), 'prompt: contains Labrat version');
+    assert(prompt.includes('const retry = true'), 'prompt: contains NightShift version');
     assert(prompt.includes('--- a/src/retry.ts'), 'prompt: contains upstream patch');
     assert(prompt.includes('// FILE:'), 'prompt: contains format instructions');
     assert(prompt.includes('Output Format'), 'prompt: has output format section');
@@ -913,8 +913,8 @@ async function main(): Promise<void> {
       hash: 'multi123',
       subject: 'feat: multi-file change',
       conflictingFiles: [
-        { path: 'file-a.ts', withMarkers: 'markers-a', labratVersion: 'labrat-a', upstreamPatch: 'patch-a' },
-        { path: 'file-b.ts', withMarkers: 'markers-b', labratVersion: 'labrat-b', upstreamPatch: 'patch-b' },
+        { path: 'file-a.ts', withMarkers: 'markers-a', nightshiftVersion: 'nightshift-a', upstreamPatch: 'patch-a' },
+        { path: 'file-b.ts', withMarkers: 'markers-b', nightshiftVersion: 'nightshift-b', upstreamPatch: 'patch-b' },
       ],
     };
     const prompt = buildAdaptationPrompt(ctx);
@@ -929,11 +929,11 @@ async function main(): Promise<void> {
     const ctx: ConflictContext = {
       hash: 'sum123',
       subject: 'test',
-      conflictingFiles: [{ path: 'f.ts', withMarkers: 'm', labratVersion: 'l', upstreamPatch: 'p' }],
+      conflictingFiles: [{ path: 'f.ts', withMarkers: 'm', nightshiftVersion: 'l', upstreamPatch: 'p' }],
     };
-    const prompt = buildAdaptationPrompt(ctx, 'Labrat is a research tool that runs experiments.');
-    assert(prompt.includes('Labrat Project Summary'), 'prompt summary: has summary section');
-    assert(prompt.includes('Labrat is a research tool'), 'prompt summary: contains summary text');
+    const prompt = buildAdaptationPrompt(ctx, 'NightShift is a research tool that runs experiments.');
+    assert(prompt.includes('NightShift Project Summary'), 'prompt summary: has summary section');
+    assert(prompt.includes('NightShift is a research tool'), 'prompt summary: contains summary text');
   }
 
   // Prompt omits summary section when not provided
@@ -941,10 +941,10 @@ async function main(): Promise<void> {
     const ctx: ConflictContext = {
       hash: 'nosum123',
       subject: 'test',
-      conflictingFiles: [{ path: 'f.ts', withMarkers: 'm', labratVersion: 'l', upstreamPatch: 'p' }],
+      conflictingFiles: [{ path: 'f.ts', withMarkers: 'm', nightshiftVersion: 'l', upstreamPatch: 'p' }],
     };
     const prompt = buildAdaptationPrompt(ctx);
-    assert(!prompt.includes('Labrat Project Summary'), 'prompt no-summary: summary section absent');
+    assert(!prompt.includes('NightShift Project Summary'), 'prompt no-summary: summary section absent');
   }
 
   console.log('\n=== S03: parseAdaptedFiles ===');

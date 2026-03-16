@@ -1,8 +1,8 @@
 {
-  "name": "@labrat/pkg",
+  "name": "@nightshift/pkg",
   "version": "0.57.1",
   "piConfig": {
-    "name": "labrat",
-    "configDir": ".labrat"
+    "name": "nightshift",
+    "configDir": ".nightshift"
   }
 }

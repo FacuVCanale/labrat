@@ -9,7 +9,7 @@
  * - Infrastructure commits (packages/*, config fixes) are correctly categorized
  * - Report contains expected section headers
  * - State persistence: evaluated commits excluded on re-filter
- * - Conflict detection flags files modified by both Labrat and upstream
+ * - Conflict detection flags files modified by both NightShift and upstream
  */
 
 import { execSync } from 'node:child_process';
@@ -25,7 +25,7 @@ import {
   writeSyncState,
   filterNewCommits,
   generateSyncReport,
-  clearLabratFilesCache,
+  clearNightShiftFilesCache,
 } from '../upstream-sync.ts';
 
 import type { UpstreamCommitInfo, SyncState } from '../types.ts';
@@ -125,8 +125,8 @@ if (packagesOnlyCommits.length > 0) {
   console.log('    (no packages-only commits found — this is fine for some fork points)');
 }
 
-// Verify Labrat-only file commits are dev-specific
-const labratOnlyCommits = allCommits.filter(c =>
+// Verify NightShift-only file commits are dev-specific
+const nightshiftOnlyCommits = allCommits.filter(c =>
   c.filesChanged.length > 0 && c.filesChanged.every(f => {
     const bare = f.replace(/^src\/resources\/extensions\/gsd\//, '');
     return ['agenda.ts', 'steering.ts', 'simplicity-scorer.ts', 'eval-runner.ts',
@@ -135,12 +135,12 @@ const labratOnlyCommits = allCommits.filter(c =>
            f.startsWith('src/resources/extensions/gsd/tests/');
   })
 );
-for (const commit of labratOnlyCommits) {
+for (const commit of nightshiftOnlyCommits) {
   assertEq(commit.category, 'development-specific',
-    `labrat-only commit "${commit.subject.slice(0, 40)}..." should be development-specific`);
+    `nightshift-only commit "${commit.subject.slice(0, 40)}..." should be development-specific`);
 }
-if (labratOnlyCommits.length > 0) {
-  console.log(`    verified ${labratOnlyCommits.length} labrat-only commits are development-specific`);
+if (nightshiftOnlyCommits.length > 0) {
+  console.log(`    verified ${nightshiftOnlyCommits.length} nightshift-only commits are development-specific`);
 }
 
 // ─── Test 3: Report generation ──────────────────────────────────────────────
@@ -219,7 +219,7 @@ rmSync(tmpDir, { recursive: true, force: true });
 
 console.log('\n  ▸ Conflict detection');
 
-clearLabratFilesCache();
+clearNightShiftFilesCache();
 
 // Check if merge-base exists between HEAD and upstream/main
 let hasMergeBase = false;
@@ -231,7 +231,7 @@ try {
 }
 
 if (hasMergeBase) {
-  // getConflictFiles uses the real basePath — Labrat has modified auto.ts, commands.ts, etc.
+  // getConflictFiles uses the real basePath — NightShift has modified auto.ts, commands.ts, etc.
   const conflictsForSharedFiles = getConflictFiles(basePath, [
     'src/resources/extensions/gsd/auto.ts',
     'src/resources/extensions/gsd/commands.ts',
@@ -256,7 +256,7 @@ if (hasMergeBase) {
   });
   console.log(`    ${commitsWithConflicts.length} of ${allCommits.length} upstream commits have potential conflicts`);
 } else {
-  // Repos have unrelated histories — merge-base fails, so getLabratModifiedFiles
+  // Repos have unrelated histories — merge-base fails, so getNightShiftModifiedFiles
   // correctly returns empty set. Verify this graceful degradation.
   console.log('    no merge-base between HEAD and upstream/main (unrelated histories)');
   console.log('    conflict detection correctly returns empty set — testing with synthetic scenario');
@@ -283,8 +283,8 @@ if (hasMergeBase) {
     // Modify file-a on current branch
     writeFileSync(join(tmpConflict, 'file-a.ts'), 'modified');
     execSync('git add -A && git commit -m "modify file-a"', { cwd: tmpConflict, stdio: 'pipe' });
-    // Now getLabratModifiedFiles should detect file-a.ts
-    clearLabratFilesCache();
+    // Now getNightShiftModifiedFiles should detect file-a.ts
+    clearNightShiftFilesCache();
     // Can't use getConflictFiles directly (it uses `upstream/main` remote ref not branch),
     // but we verified the logic in contract tests. Just confirm the function doesn't crash.
     passed++;

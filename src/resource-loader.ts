@@ -68,24 +68,24 @@ export function discoverExtensionEntryPaths(extensionsDir: string): string[] {
 }
 
 /**
- * Syncs all bundled resources to agentDir (~/.labrat/agent/) on every launch.
+ * Syncs all bundled resources to agentDir (~/.nightshift/agent/) on every launch.
  *
- * - extensions/ → ~/.labrat/agent/extensions/   (always overwrite — ensures updates ship on next launch)
- * - agents/     → ~/.labrat/agent/agents/        (always overwrite)
- * - skills/     → ~/.labrat/agent/skills/        (always overwrite)
- * - AGENTS.md   → ~/.labrat/agent/AGENTS.md      (always overwrite)
- * - GSD-WORKFLOW.md is read directly from bundled path via LABRAT_WORKFLOW_PATH env var
+ * - extensions/ → ~/.nightshift/agent/extensions/   (always overwrite — ensures updates ship on next launch)
+ * - agents/     → ~/.nightshift/agent/agents/        (always overwrite)
+ * - skills/     → ~/.nightshift/agent/skills/        (always overwrite)
+ * - AGENTS.md   → ~/.nightshift/agent/AGENTS.md      (always overwrite)
+ * - GSD-WORKFLOW.md is read directly from bundled path via NIGHTSHIFT_WORKFLOW_PATH env var
  *
- * Always-overwrite ensures `npm update -g labrat` takes effect immediately.
- * User customizations should go in ~/.labrat/agent/extensions/ subdirs with unique names,
- * not by editing the labrat-managed files.
+ * Always-overwrite ensures `npm update -g nightshift` takes effect immediately.
+ * User customizations should go in ~/.nightshift/agent/extensions/ subdirs with unique names,
+ * not by editing the nightshift-managed files.
  *
- * Inspectable: `ls ~/.labrat/agent/extensions/`
+ * Inspectable: `ls ~/.nightshift/agent/extensions/`
  */
 export function initResources(agentDir: string): void {
   const destExtensions = join(agentDir, 'extensions')
-  const versionFile = join(destExtensions, '.labrat-version')
-  const currentVersion = process.env.LABRAT_VERSION || ''
+  const versionFile = join(destExtensions, '.nightshift-version')
+  const currentVersion = process.env.NIGHTSHIFT_VERSION || ''
 
   // Skip sync if version matches — avoids expensive cpSync on every launch
   try {
@@ -127,8 +127,8 @@ export function initResources(agentDir: string): void {
 }
 
 /**
- * Constructs a DefaultResourceLoader that loads extensions from ~/.labrat/agent/extensions/.
- * Labrat's extensions are fully independent from pi's ~/.pi/ directory.
+ * Constructs a DefaultResourceLoader that loads extensions from ~/.nightshift/agent/extensions/.
+ * NightShift's extensions are fully independent from pi's ~/.pi/ directory.
  */
 export function buildResourceLoader(agentDir: string): DefaultResourceLoader {
   return new DefaultResourceLoader({

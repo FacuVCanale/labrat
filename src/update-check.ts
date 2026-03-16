@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import { appRoot } from './app-paths.js'
 
 const CACHE_FILE = join(appRoot, '.update-check')
-const NPM_PACKAGE_NAME = 'labrat'
+const NPM_PACKAGE_NAME = 'nightshift'
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const FETCH_TIMEOUT_MS = 5000
 
@@ -53,7 +53,7 @@ function printUpdateBanner(current: string, latest: string): void {
 
   process.stderr.write(
     `  ${yellow}Update available:${reset} ${dim}v${current}${reset} → ${bold}v${latest}${reset}\n` +
-    `  ${dim}Run${reset} npm update -g labrat ${dim}or${reset} /gsd:update ${dim}to upgrade${reset}\n\n`,
+    `  ${dim}Run${reset} npm update -g nightshift ${dim}or${reset} /gsd:update ${dim}to upgrade${reset}\n\n`,
   )
 }
 
@@ -71,7 +71,7 @@ export interface UpdateCheckOptions {
  * caches the result, and prints a banner if a newer version is available.
  */
 export async function checkForUpdates(options: UpdateCheckOptions = {}): Promise<void> {
-  const currentVersion = options.currentVersion || process.env.LABRAT_VERSION || '0.0.0'
+  const currentVersion = options.currentVersion || process.env.NIGHTSHIFT_VERSION || '0.0.0'
   const cachePath = options.cachePath || CACHE_FILE
   const registryUrl = options.registryUrl || `https://registry.npmjs.org/${NPM_PACKAGE_NAME}/latest`
   const checkIntervalMs = options.checkIntervalMs ?? CHECK_INTERVAL_MS

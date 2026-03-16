@@ -2,12 +2,12 @@
  * App-level smoke tests for the gsd CLI package.
  *
  * Tests the glue code that IS the product:
- * - app-paths resolve to ~/.labrat/
+ * - app-paths resolve to ~/.nightshift/
  * - loader sets all required env vars
  * - resource-loader syncs bundled resources
  * - wizard loadStoredEnvKeys hydrates env
  * - npm pack produces a valid tarball
- * - tarball installs and the `labrat` binary resolves
+ * - tarball installs and the `nightshift` binary resolves
  */
 
 import test from "node:test";
@@ -39,21 +39,21 @@ function tryBuild(): boolean {
 // 1. app-paths
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("app-paths resolve to ~/.labrat/", async () => {
+test("app-paths resolve to ~/.nightshift/", async () => {
   const { appRoot, agentDir, sessionsDir, authFilePath } = await import("../app-paths.ts");
   const home = process.env.HOME!;
 
-  assert.equal(appRoot, join(home, ".labrat"), "appRoot is ~/.labrat/");
-  assert.equal(agentDir, join(home, ".labrat", "agent"), "agentDir is ~/.labrat/agent/");
-  assert.equal(sessionsDir, join(home, ".labrat", "sessions"), "sessionsDir is ~/.labrat/sessions/");
-  assert.equal(authFilePath, join(home, ".labrat", "agent", "auth.json"), "authFilePath is ~/.labrat/agent/auth.json");
+  assert.equal(appRoot, join(home, ".nightshift"), "appRoot is ~/.nightshift/");
+  assert.equal(agentDir, join(home, ".nightshift", "agent"), "agentDir is ~/.nightshift/agent/");
+  assert.equal(sessionsDir, join(home, ".nightshift", "sessions"), "sessionsDir is ~/.nightshift/sessions/");
+  assert.equal(authFilePath, join(home, ".nightshift", "agent", "auth.json"), "authFilePath is ~/.nightshift/agent/auth.json");
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 2. loader env vars
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("loader sets all 4 LABRAT_ env vars and PI_PACKAGE_DIR", async () => {
+test("loader sets all 4 NIGHTSHIFT_ env vars and PI_PACKAGE_DIR", async () => {
   // Run loader in a subprocess that prints env vars and exits before TUI starts
   const script = `
     import { fileURLToPath } from 'url';
@@ -62,23 +62,23 @@ test("loader sets all 4 LABRAT_ env vars and PI_PACKAGE_DIR", async () => {
 
     const pkgDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'pkg');
     process.env.PI_PACKAGE_DIR = pkgDir;
-    process.env.LABRAT_CODING_AGENT_DIR = agentDir;
-    process.env.LABRAT_BIN_PATH = process.argv[1];
+    process.env.NIGHTSHIFT_CODING_AGENT_DIR = agentDir;
+    process.env.NIGHTSHIFT_BIN_PATH = process.argv[1];
     const resourcesDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'resources');
-    process.env.LABRAT_WORKFLOW_PATH = join(resourcesDir, 'GSD-WORKFLOW.md');
+    process.env.NIGHTSHIFT_WORKFLOW_PATH = join(resourcesDir, 'GSD-WORKFLOW.md');
     const exts = ['extensions/gsd/index.ts'].map(r => join(resourcesDir, r));
-    process.env.LABRAT_BUNDLED_EXTENSION_PATHS = exts.join(':');
+    process.env.NIGHTSHIFT_BUNDLED_EXTENSION_PATHS = exts.join(':');
 
     // Print for verification
     console.log('PI_PACKAGE_DIR=' + process.env.PI_PACKAGE_DIR);
-    console.log('LABRAT_CODING_AGENT_DIR=' + process.env.LABRAT_CODING_AGENT_DIR);
-    console.log('LABRAT_BIN_PATH=' + process.env.LABRAT_BIN_PATH);
-    console.log('LABRAT_WORKFLOW_PATH=' + process.env.LABRAT_WORKFLOW_PATH);
-    console.log('LABRAT_BUNDLED_EXTENSION_PATHS=' + process.env.LABRAT_BUNDLED_EXTENSION_PATHS);
+    console.log('NIGHTSHIFT_CODING_AGENT_DIR=' + process.env.NIGHTSHIFT_CODING_AGENT_DIR);
+    console.log('NIGHTSHIFT_BIN_PATH=' + process.env.NIGHTSHIFT_BIN_PATH);
+    console.log('NIGHTSHIFT_WORKFLOW_PATH=' + process.env.NIGHTSHIFT_WORKFLOW_PATH);
+    console.log('NIGHTSHIFT_BUNDLED_EXTENSION_PATHS=' + process.env.NIGHTSHIFT_BUNDLED_EXTENSION_PATHS);
     process.exit(0);
   `;
 
-  const tmp = mkdtempSync(join(tmpdir(), "labrat-loader-test-"));
+  const tmp = mkdtempSync(join(tmpdir(), "nightshift-loader-test-"));
   const scriptPath = join(tmp, "check-env.ts");
   writeFileSync(scriptPath, script);
 
@@ -97,15 +97,15 @@ test("loader sets all 4 LABRAT_ env vars and PI_PACKAGE_DIR", async () => {
 
   // Direct logic verification (no subprocess needed)
   const { agentDir: ad } = await import("../app-paths.ts");
-  assert.ok(ad.endsWith(".labrat/agent"), "agentDir ends with .labrat/agent");
+  assert.ok(ad.endsWith(".nightshift/agent"), "agentDir ends with .nightshift/agent");
 
   // Verify the env var names are in loader.ts source
   const loaderSrc = readFileSync(join(projectRoot, "src", "loader.ts"), "utf-8");
   assert.ok(loaderSrc.includes("PI_PACKAGE_DIR"), "loader sets PI_PACKAGE_DIR");
-  assert.ok(loaderSrc.includes("LABRAT_CODING_AGENT_DIR"), "loader sets LABRAT_CODING_AGENT_DIR");
-  assert.ok(loaderSrc.includes("LABRAT_BIN_PATH"), "loader sets LABRAT_BIN_PATH");
-  assert.ok(loaderSrc.includes("LABRAT_WORKFLOW_PATH"), "loader sets LABRAT_WORKFLOW_PATH");
-  assert.ok(loaderSrc.includes("LABRAT_BUNDLED_EXTENSION_PATHS"), "loader sets LABRAT_BUNDLED_EXTENSION_PATHS");
+  assert.ok(loaderSrc.includes("NIGHTSHIFT_CODING_AGENT_DIR"), "loader sets NIGHTSHIFT_CODING_AGENT_DIR");
+  assert.ok(loaderSrc.includes("NIGHTSHIFT_BIN_PATH"), "loader sets NIGHTSHIFT_BIN_PATH");
+  assert.ok(loaderSrc.includes("NIGHTSHIFT_WORKFLOW_PATH"), "loader sets NIGHTSHIFT_WORKFLOW_PATH");
+  assert.ok(loaderSrc.includes("NIGHTSHIFT_BUNDLED_EXTENSION_PATHS"), "loader sets NIGHTSHIFT_BUNDLED_EXTENSION_PATHS");
 
   // Verify all 11 extension entry points are referenced in loader
   // Loader uses join() calls like join(agentDir, 'extensions', 'gsd', 'index.ts')
@@ -166,7 +166,7 @@ test("initResources syncs extensions, agents, and skills to target dir", async (
 // ═══════════════════════════════════════════════════════════════════════════
 
 test("buildResourceLoader loads extensions only from agentDir (no ~/.pi cross-loading)", async () => {
-  const tmp = mkdtempSync(join(tmpdir(), "labrat-ext-test-"));
+  const tmp = mkdtempSync(join(tmpdir(), "nightshift-ext-test-"));
   const fakeAgentDir = join(tmp, "agent");
   const extensionsDir = join(fakeAgentDir, "extensions");
   mkdirSync(extensionsDir, { recursive: true });
@@ -312,8 +312,8 @@ test("npm pack produces tarball with required files", async (t) => {
     // pkg/package.json must have piConfig
     const pkgJson = readFileSync(join(projectRoot, "pkg", "package.json"), "utf-8");
     const pkg = JSON.parse(pkgJson);
-    assert.equal(pkg.piConfig?.name, "labrat", "pkg/package.json piConfig.name is labrat");
-    assert.equal(pkg.piConfig?.configDir, ".labrat", "pkg/package.json piConfig.configDir is .labrat");
+    assert.equal(pkg.piConfig?.name, "nightshift", "pkg/package.json piConfig.name is nightshift");
+    assert.equal(pkg.piConfig?.configDir, ".nightshift", "pkg/package.json piConfig.configDir is .nightshift");
   } finally {
     // Clean up tarball
     rmSync(tarballPath, { force: true });
@@ -324,7 +324,7 @@ test("npm pack produces tarball with required files", async (t) => {
 // 7. npm pack → install → gsd binary resolves
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("tarball installs and labrat binary resolves", async (t) => {
+test("tarball installs and nightshift binary resolves", async (t) => {
   // Build and pack — skip test if build fails
   if (!tryBuild()) { t.skip("npm run build failed"); return; }
   let packOutput: string;
@@ -354,17 +354,17 @@ test("tarball installs and labrat binary resolves", async (t) => {
       env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" },
     });
 
-    // Verify the labrat bin exists in the installed package
-    const installedBin = join(tmp, "node_modules", ".bin", "labrat");
-    assert.ok(existsSync(installedBin), "labrat binary exists in node_modules/.bin/");
+    // Verify the nightshift bin exists in the installed package
+    const installedBin = join(tmp, "node_modules", ".bin", "nightshift");
+    assert.ok(existsSync(installedBin), "nightshift binary exists in node_modules/.bin/");
 
     // Verify loader.js is executable (has shebang)
-    const installedLoader = join(tmp, "node_modules", "labrat", "dist", "loader.js");
+    const installedLoader = join(tmp, "node_modules", "nightshift", "dist", "loader.js");
     const loaderContent = readFileSync(installedLoader, "utf-8");
     assert.ok(loaderContent.startsWith("#!/usr/bin/env node"), "loader.js has node shebang");
 
     // Verify bundled resources are present
-    const installedGsdExt = join(tmp, "node_modules", "labrat", "src", "resources", "extensions", "gsd", "index.ts");
+    const installedGsdExt = join(tmp, "node_modules", "nightshift", "src", "resources", "extensions", "gsd", "index.ts");
     assert.ok(existsSync(installedGsdExt), "bundled gsd extension present in installed package");
   } finally {
     rmSync(tarballPath, { force: true });
@@ -376,7 +376,7 @@ test("tarball installs and labrat binary resolves", async (t) => {
 // 8. Launch → extensions load → no errors on stderr
 // ═══════════════════════════════════════════════════════════════════════════
 
-test("labrat launches and loads extensions without errors", async (t) => {
+test("nightshift launches and loads extensions without errors", async (t) => {
   // Build first — skip test if build fails
   if (!tryBuild()) { t.skip("npm run build failed"); return; }
 
@@ -417,7 +417,7 @@ test("labrat launches and loads extensions without errors", async (t) => {
 
   // No extension load errors
   assert.ok(
-    !output.includes("[labrat] Extension load error"),
+    !output.includes("[nightshift] Extension load error"),
     `no extension load errors on stderr (got: ${output.slice(0, 500)})`,
   );
 

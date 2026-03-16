@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const resourcesDir = resolve(__dirname, '..', 'src', 'resources')
-const labratRoot = join(os.homedir(), '.labrat')
-const labratAgentDir = join(labratRoot, 'agent')
+const nightshiftRoot = join(os.homedir(), '.nightshift')
+const nightshiftAgentDir = join(nightshiftRoot, 'agent')
 
 const removed = []
 const skipped = []
@@ -20,7 +20,7 @@ function safeRemove(path, label) {
 
 function removeResourceEntries(containerName) {
   const srcDir = join(resourcesDir, containerName)
-  const destDir = join(labratAgentDir, containerName)
+  const destDir = join(nightshiftAgentDir, containerName)
   if (!existsSync(srcDir) || !existsSync(destDir)) return
 
   for (const entry of readdirSync(srcDir)) {
@@ -56,11 +56,11 @@ function removeIfContentMatches(targetPath, sourcePath, label) {
 removeResourceEntries('extensions')
 removeResourceEntries('skills')
 removeResourceEntries('agents')
-removeIfContentMatches(join(labratAgentDir, 'AGENTS.md'), join(resourcesDir, 'AGENTS.md'), 'agent/AGENTS.md')
-removeIfContentMatches(join(labratRoot, 'GSD-WORKFLOW.md'), join(resourcesDir, 'GSD-WORKFLOW.md'), 'GSD-WORKFLOW.md')
+removeIfContentMatches(join(nightshiftAgentDir, 'AGENTS.md'), join(resourcesDir, 'AGENTS.md'), 'agent/AGENTS.md')
+removeIfContentMatches(join(nightshiftRoot, 'GSD-WORKFLOW.md'), join(resourcesDir, 'GSD-WORKFLOW.md'), 'GSD-WORKFLOW.md')
 
 process.stdout.write(
-  `Removed labrat resources from ${labratRoot}\n` +
+  `Removed nightshift resources from ${nightshiftRoot}\n` +
   `Removed: ${removed.length ? removed.join(', ') : '(nothing)'}\n` +
   (skipped.length ? `Skipped: ${skipped.join(', ')}\n` : '')
 )

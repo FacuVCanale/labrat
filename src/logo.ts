@@ -1,5 +1,5 @@
 /**
- * Shared LABRAT block-letter ASCII logo.
+ * Shared NIGHTSHIFT block-letter ASCII logo.
  *
  * Single source of truth — imported by:
  *   - scripts/postinstall.js (via dist/logo.js)
@@ -7,13 +7,13 @@
  */
 
 /** Raw logo lines — no ANSI codes, no leading newline. */
-export const LABRAT_LOGO: readonly string[] = [
-  '  ██╗      █████╗ ██████╗ ██████╗  █████╗ ████████╗',
-  '  ██║     ██╔══██╗██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝',
-  '  ██║     ███████║██████╔╝██████╔╝███████║   ██║   ',
-  '  ██║     ██╔══██║██╔══██╗██╔══██╗██╔══██║   ██║   ',
-  '  ███████╗██║  ██║██████╔╝██║  ██║██║  ██║   ██║   ',
-  '  ╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ',
+export const NIGHTSHIFT_LOGO: readonly string[] = [
+  '  ███╗   ██╗██╗ ██████╗ ██╗  ██╗████████╗███████╗██╗  ██╗██╗███████╗████████╗',
+  '  ████╗  ██║██║██╔════╝ ██║  ██║╚══██╔══╝██╔════╝██║  ██║██║██╔════╝╚══██╔══╝',
+  '  ██╔██╗ ██║██║██║  ███╗███████║   ██║   ███████╗███████║██║█████╗     ██║   ',
+  '  ██║╚██╗██║██║██║   ██║██╔══██║   ██║   ╚════██║██╔══██║██║██╔══╝     ██║   ',
+  '  ██║ ╚████║██║╚██████╔╝██║  ██║   ██║   ███████║██║  ██║██║██║        ██║   ',
+  '  ╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ',
 ]
 
 /**
@@ -23,5 +23,5 @@ export const LABRAT_LOGO: readonly string[] = [
  * @returns Ready-to-write string with leading/trailing newlines.
  */
 export function renderLogo(color: (s: string) => string): string {
-  return '\n' + LABRAT_LOGO.map(color).join('\n') + '\n'
+  return '\n' + NIGHTSHIFT_LOGO.map(color).join('\n') + '\n'
 }

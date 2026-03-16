@@ -111,7 +111,7 @@ type UIContext = ExtensionContext;
  * This is the only way the wizard triggers work — everything else is the LLM's job.
  */
 function dispatchWorkflow(pi: ExtensionAPI, note: string, customType = "gsd-run"): void {
-  const workflowPath = process.env.LABRAT_WORKFLOW_PATH ?? join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
+  const workflowPath = process.env.NIGHTSHIFT_WORKFLOW_PATH ?? join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
   const workflow = readFileSync(workflowPath, "utf-8");
 
   pi.sendMessage(

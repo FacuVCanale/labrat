@@ -34,7 +34,7 @@ import { handleMigrate } from "./migrate/command.js";
 import { handleRemote } from "../remote-questions/remote-command.js";
 
 function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportText: string, structuredIssues: string): void {
-  const workflowPath = process.env.LABRAT_WORKFLOW_PATH ?? join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
+  const workflowPath = process.env.NIGHTSHIFT_WORKFLOW_PATH ?? join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
   const workflow = readFileSync(workflowPath, "utf-8");
   const prompt = loadPrompt("doctor-heal", {
     doctorSummary: reportText,
@@ -406,9 +406,9 @@ async function handleSync(ctx: ExtensionCommandContext, pi: ExtensionAPI, rawCom
             f.withMarkers,
             "```",
             "",
-            "#### Labrat's Version (pre-conflict)",
+            "#### NightShift's Version (pre-conflict)",
             "```",
-            f.labratVersion,
+            f.nightshiftVersion,
             "```",
             "",
             "#### Upstream Patch",
@@ -444,7 +444,7 @@ async function handleSync(ctx: ExtensionCommandContext, pi: ExtensionAPI, rawCom
           "## Workflow",
           "",
           "1. Read the conflict details above carefully.",
-          "2. Produce adapted file contents that preserve Labrat additions while applying the upstream fix intent.",
+          "2. Produce adapted file contents that preserve NightShift additions while applying the upstream fix intent.",
           "3. Write each adapted file to disk.",
           `4. Import \`applyAdaptedFiles\` from \`upstream-sync.ts\` and call it with basePath="${process.cwd()}", hash="${result.conflictContext.hash}", subject="${result.conflictContext.subject}", and the adapted files array.`,
           "5. If applyAdaptedFiles returns success=false, report the error.",

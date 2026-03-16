@@ -89,7 +89,7 @@ function parseCliArgs(argv: string[]): CliFlags {
     } else if (arg === '--adapt') {
       flags.adapt = true
     } else if (arg === '--version' || arg === '-v') {
-      process.stdout.write((process.env.LABRAT_VERSION || '0.0.0') + '\n')
+      process.stdout.write((process.env.NIGHTSHIFT_VERSION || '0.0.0') + '\n')
       process.exit(0)
     } else if (arg === '--help' || arg === '-h') {
       // Defer help to subcommand handler if `start` or `sync` is the first positional arg
@@ -98,8 +98,8 @@ function parseCliArgs(argv: string[]): CliFlags {
         // Will be handled by the subcommand
         flags.messages.push('--help')
       } else {
-      process.stdout.write(`Labrat v${process.env.LABRAT_VERSION || '0.0.0'}\n\n`)
-      process.stdout.write('Usage: labrat [options] [message...]\n\n')
+      process.stdout.write(`NightShift v${process.env.NIGHTSHIFT_VERSION || '0.0.0'}\n\n`)
+      process.stdout.write('Usage: nightshift [options] [message...]\n\n')
       process.stdout.write('Options:\n')
       process.stdout.write('  --mode <text|json|rpc>   Output mode (default: interactive)\n')
       process.stdout.write('  --print, -p              Single-shot print mode\n')
@@ -112,7 +112,7 @@ function parseCliArgs(argv: string[]): CliFlags {
       process.stdout.write('  --help, -h               Print this help and exit\n')
       process.stdout.write('\nSubcommands:\n')
       process.stdout.write('  config                   Re-run the setup wizard\n')
-      process.stdout.write('  update                   Update Labrat to the latest version\n')
+      process.stdout.write('  update                   Update NightShift to the latest version\n')
       process.stdout.write('  report                   Print campaign morning report to stdout\n')
       process.stdout.write('  sync                     Show categorized upstream changes since fork\n')
       process.stdout.write('  start                    Bootstrap a research campaign and launch interactive mode\n')
@@ -149,7 +149,7 @@ if (cliFlags.messages[0] === 'update') {
   process.exit(0)
 }
 
-// `labrat report` — print morning report to stdout and exit
+// `nightshift report` — print morning report to stdout and exit
 if (cliFlags.messages[0] === 'report') {
   const { findActiveCampaignDir, generateMorningReport } = await import('./resources/extensions/gsd/morning-report.js')
   const { parseCampaignConfig } = await import('./resources/extensions/gsd/state.js')
@@ -200,13 +200,13 @@ if (cliFlags.messages[0] === 'report') {
   process.exit(0)
 }
 
-// `labrat sync` — show categorized upstream changes and exit
+// `nightshift sync` — show categorized upstream changes and exit
 if (cliFlags.messages[0] === 'sync') {
   // Show sync-specific help
   if (cliFlags.messages.includes('--help') || cliFlags.messages.includes('-h') ||
       process.argv.includes('--help') || process.argv.includes('-h')) {
-    process.stdout.write(`Labrat v${process.env.LABRAT_VERSION || '0.0.0'} — sync\n\n`)
-    process.stdout.write('Usage: labrat sync [options]\n\n')
+    process.stdout.write(`NightShift v${process.env.NIGHTSHIFT_VERSION || '0.0.0'} — sync\n\n`)
+    process.stdout.write('Usage: nightshift sync [options]\n\n')
     process.stdout.write('Show categorized upstream (GSD-2) changes since fork point.\n\n')
     process.stdout.write('Options:\n')
     process.stdout.write('  --no-fetch               Skip `git fetch upstream` (use cached refs)\n')
@@ -271,7 +271,7 @@ if (cliFlags.messages[0] === 'sync') {
       const { execSync } = await import('node:child_process')
       execSync('git fetch upstream', { cwd: basePath, stdio: ['pipe', 'pipe', 'pipe'] })
     } catch (err) {
-      process.stderr.write(`[labrat sync] Warning: git fetch upstream failed — using cached refs\n`)
+      process.stderr.write(`[nightshift sync] Warning: git fetch upstream failed — using cached refs\n`)
     }
   }
 
@@ -307,13 +307,13 @@ if (cliFlags.messages[0] === 'sync') {
   process.exit(0)
 }
 
-// `labrat start` — bootstrap research campaign and fall through to interactive mode
+// `nightshift start` — bootstrap research campaign and fall through to interactive mode
 if (cliFlags.messages[0] === 'start') {
   // Show start-specific help
   if (cliFlags.messages.includes('--help') || cliFlags.messages.includes('-h') ||
       process.argv.includes('--help') || process.argv.includes('-h')) {
-    process.stdout.write(`Labrat v${process.env.LABRAT_VERSION || '0.0.0'} — start\n\n`)
-    process.stdout.write('Usage: labrat start --target <path> --eval <command> --metric <name:dir:weight> [options]\n\n')
+    process.stdout.write(`NightShift v${process.env.NIGHTSHIFT_VERSION || '0.0.0'} — start\n\n`)
+    process.stdout.write('Usage: nightshift start --target <path> --eval <command> --metric <name:dir:weight> [options]\n\n')
     process.stdout.write('Required flags:\n')
     process.stdout.write('  --target <path>          Target file(s) to optimize (repeatable)\n')
     process.stdout.write('  --eval <command>          Evaluation command\n')
@@ -332,9 +332,9 @@ if (cliFlags.messages[0] === 'start') {
   if (cliFlags.metrics.length === 0) missingFlags.push('--metric')
 
   if (missingFlags.length > 0) {
-    process.stderr.write(`[labrat] Error: Missing required flag(s): ${missingFlags.join(', ')}\n`)
-    process.stderr.write('[labrat] Usage: labrat start --target <path> --eval <command> --metric <name:dir:weight>\n')
-    process.stderr.write('[labrat] Run "labrat start --help" for details.\n')
+    process.stderr.write(`[nightshift] Error: Missing required flag(s): ${missingFlags.join(', ')}\n`)
+    process.stderr.write('[nightshift] Usage: nightshift start --target <path> --eval <command> --metric <name:dir:weight>\n')
+    process.stderr.write('[nightshift] Run "nightshift start --help" for details.\n')
     process.exit(1)
   }
 
@@ -343,17 +343,17 @@ if (cliFlags.messages[0] === 'start') {
   for (const m of cliFlags.metrics) {
     const parts = m.split(':')
     if (parts.length !== 3) {
-      process.stderr.write(`[labrat] Error: Invalid metric format "${m}". Expected name:min|max:weight\n`)
+      process.stderr.write(`[nightshift] Error: Invalid metric format "${m}". Expected name:min|max:weight\n`)
       process.exit(1)
     }
     const [name, dir, wt] = parts
     if (dir !== 'min' && dir !== 'max') {
-      process.stderr.write(`[labrat] Error: Invalid metric direction "${dir}" in "${m}". Must be "min" or "max".\n`)
+      process.stderr.write(`[nightshift] Error: Invalid metric direction "${dir}" in "${m}". Must be "min" or "max".\n`)
       process.exit(1)
     }
     const weight = parseFloat(wt)
     if (isNaN(weight) || weight <= 0) {
-      process.stderr.write(`[labrat] Error: Invalid metric weight "${wt}" in "${m}". Must be a positive number.\n`)
+      process.stderr.write(`[nightshift] Error: Invalid metric weight "${wt}" in "${m}". Must be a positive number.\n`)
       process.exit(1)
     }
     metricDefs.push({ name, direction: dir, weight })
@@ -419,7 +419,7 @@ if (cliFlags.messages[0] === 'start') {
   }
 
   // Set auto-start env var — session_start hook will pick this up
-  process.env.LABRAT_AUTO_START = '1'
+  process.env.NIGHTSHIFT_AUTO_START = '1'
   // Fall through to interactive mode (no process.exit)
 }
 
@@ -526,7 +526,7 @@ if (isPrintMode) {
 
   if (extensionsResult.errors.length > 0) {
     for (const err of extensionsResult.errors) {
-      process.stderr.write(`[labrat] Extension load error: ${err.error}\n`)
+      process.stderr.write(`[nightshift] Extension load error: ${err.error}\n`)
     }
   }
 
@@ -606,7 +606,7 @@ const { session, extensionsResult } = await createAgentSession({
 
 if (extensionsResult.errors.length > 0) {
   for (const err of extensionsResult.errors) {
-    process.stderr.write(`[labrat] Extension load error: ${err.error}\n`)
+    process.stderr.write(`[nightshift] Extension load error: ${err.error}\n`)
   }
 }
 
@@ -654,11 +654,11 @@ if (enabledModelPatterns && enabledModelPatterns.length > 0) {
 }
 
 if (!process.stdin.isTTY) {
-  process.stderr.write('[labrat] Error: Interactive mode requires a terminal (TTY).\n')
-  process.stderr.write('[labrat] Non-interactive alternatives:\n')
-  process.stderr.write('[labrat]   labrat --print "your message"     Single-shot prompt\n')
-  process.stderr.write('[labrat]   labrat --mode rpc                 JSON-RPC over stdin/stdout\n')
-  process.stderr.write('[labrat]   labrat --mode text "message"      Text output mode\n')
+  process.stderr.write('[nightshift] Error: Interactive mode requires a terminal (TTY).\n')
+  process.stderr.write('[nightshift] Non-interactive alternatives:\n')
+  process.stderr.write('[nightshift]   nightshift --print "your message"     Single-shot prompt\n')
+  process.stderr.write('[nightshift]   nightshift --mode rpc                 JSON-RPC over stdin/stdout\n')
+  process.stderr.write('[nightshift]   nightshift --mode text "message"      Text output mode\n')
   process.exit(1)
 }
 

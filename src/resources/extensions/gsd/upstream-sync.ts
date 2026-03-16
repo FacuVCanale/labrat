@@ -38,10 +38,10 @@ const DEFAULT_SYNC_STATE: SyncState = {
 // ─── File-Path Classification Rules (D053) ──────────────────────────────────
 
 /**
- * Files known to be added by Labrat (not present in upstream GSD-2).
+ * Files known to be added by NightShift (not present in upstream GSD-2).
  * Commits touching ONLY these files are development-specific.
  */
-const LABRAT_ADDED_FILES = new Set([
+const NIGHTSHIFT_ADDED_FILES = new Set([
   'agenda.ts',
   'steering.ts',
   'simplicity-scorer.ts',
@@ -50,21 +50,21 @@ const LABRAT_ADDED_FILES = new Set([
   'morning-report.ts',
 ]);
 
-/** Prefix for Labrat-added prompt files */
-const LABRAT_PROMPTS_PREFIX = 'prompts/';
+/** Prefix for NightShift-added prompt files */
+const NIGHTSHIFT_PROMPTS_PREFIX = 'prompts/';
 
 /** Prefix for infrastructure-only paths (upstream package structure) */
 const INFRASTRUCTURE_PREFIXES = [
   'packages/',
 ];
 
-/** Prefix for Labrat test files (development-specific) */
-const LABRAT_TEST_PREFIX = 'src/resources/extensions/gsd/tests/';
+/** Prefix for NightShift test files (development-specific) */
+const NIGHTSHIFT_TEST_PREFIX = 'src/resources/extensions/gsd/tests/';
 
 /**
- * Shared files that exist in both upstream and Labrat.
+ * Shared files that exist in both upstream and NightShift.
  * These require per-file analysis — a commit touching these is potentially
- * relevant to Labrat and triggers 'mixed' when combined with other categories.
+ * relevant to NightShift and triggers 'mixed' when combined with other categories.
  */
 const SHARED_FILES = new Set([
   'auto.ts',
@@ -86,18 +86,18 @@ function classifyFile(filePath: string): 'infrastructure' | 'development-specifi
   // Normalize: strip leading src/resources/extensions/gsd/ to get bare filename
   const bare = filePath.replace(/^src\/resources\/extensions\/gsd\//, '');
 
-  // Labrat test files → development-specific
-  if (filePath.startsWith(LABRAT_TEST_PREFIX)) {
+  // NightShift test files → development-specific
+  if (filePath.startsWith(NIGHTSHIFT_TEST_PREFIX)) {
     return 'development-specific';
   }
 
-  // Labrat-added files → development-specific
-  if (LABRAT_ADDED_FILES.has(bare)) {
+  // NightShift-added files → development-specific
+  if (NIGHTSHIFT_ADDED_FILES.has(bare)) {
     return 'development-specific';
   }
 
-  // Labrat prompts directory → development-specific
-  if (bare.startsWith(LABRAT_PROMPTS_PREFIX)) {
+  // NightShift prompts directory → development-specific
+  if (bare.startsWith(NIGHTSHIFT_PROMPTS_PREFIX)) {
     return 'development-specific';
   }
 
@@ -260,15 +260,15 @@ export function parseGitLog(raw: string): UpstreamCommitInfo[] {
 
 // ─── Conflict Detection ─────────────────────────────────────────────────────
 
-/** Cache for Labrat-modified files (computed once per basePath) */
-const labratFilesCache = new Map<string, Set<string>>();
+/** Cache for NightShift-modified files (computed once per basePath) */
+const nightshiftFilesCache = new Map<string, Set<string>>();
 
 /**
- * Get files that Labrat has modified since the fork point from upstream.
+ * Get files that NightShift has modified since the fork point from upstream.
  * Cached per basePath for efficiency across multiple commit checks.
  */
-export function getLabratModifiedFiles(basePath: string): Set<string> {
-  const cached = labratFilesCache.get(basePath);
+export function getNightShiftModifiedFiles(basePath: string): Set<string> {
+  const cached = nightshiftFilesCache.get(basePath);
   if (cached) return cached;
 
   // Find the fork point between HEAD and upstream/main
@@ -279,7 +279,7 @@ export function getLabratModifiedFiles(basePath: string): Set<string> {
   if (!forkPoint) {
     // No common ancestor — can't determine modifications
     const empty = new Set<string>();
-    labratFilesCache.set(basePath, empty);
+    nightshiftFilesCache.set(basePath, empty);
     return empty;
   }
 
@@ -291,24 +291,24 @@ export function getLabratModifiedFiles(basePath: string): Set<string> {
     diff ? diff.split('\n').filter(Boolean) : [],
   );
 
-  labratFilesCache.set(basePath, files);
+  nightshiftFilesCache.set(basePath, files);
   return files;
 }
 
 /**
- * Clear the Labrat-modified files cache (useful in tests).
+ * Clear the NightShift-modified files cache (useful in tests).
  */
-export function clearLabratFilesCache(): void {
-  labratFilesCache.clear();
+export function clearNightShiftFilesCache(): void {
+  nightshiftFilesCache.clear();
 }
 
 /**
- * Compare a commit's changed files against Labrat's modifications.
- * Returns the list of files that both the commit and Labrat have modified.
+ * Compare a commit's changed files against NightShift's modifications.
+ * Returns the list of files that both the commit and NightShift have modified.
  */
 export function getConflictFiles(basePath: string, commitFiles: string[]): string[] {
-  const labratFiles = getLabratModifiedFiles(basePath);
-  return commitFiles.filter(f => labratFiles.has(f));
+  const nightshiftFiles = getNightShiftModifiedFiles(basePath);
+  return commitFiles.filter(f => nightshiftFiles.has(f));
 }
 
 // ─── State Persistence (D054/D045) ──────────────────────────────────────────
@@ -432,7 +432,7 @@ export function generateSyncReport(
   commits: UpstreamCommitInfo[],
   options: SyncReportOptions = {},
 ): string {
-  clearLabratFilesCache();
+  clearNightShiftFilesCache();
   const useColor = options.useColor ?? !process.env.NO_COLOR;
   const c = makeColors(useColor);
 
@@ -585,7 +585,7 @@ export function verifyAfterApply(basePath: string): VerifyResult {
  *
  * For each unmerged file:
  * - `withMarkers`: raw file content with <<<<<<< / ======= / >>>>>>> markers
- * - `labratVersion`: Labrat's pre-cherry-pick version (from HEAD before cherry-pick, i.e. MERGE_HEAD's parent)
+ * - `nightshiftVersion`: NightShift's pre-cherry-pick version (from HEAD before cherry-pick, i.e. MERGE_HEAD's parent)
  * - `upstreamPatch`: the upstream commit's diff for this file
  */
 export function getConflictContext(basePath: string, hash: string): ConflictContext {
@@ -605,13 +605,13 @@ export function getConflictContext(basePath: string, hash: string): ConflictCont
       withMarkers = '(unable to read file)';
     }
 
-    // Get Labrat's version before the cherry-pick (HEAD's version)
-    const labratVersion = runGit(basePath, ['show', `HEAD:${filePath}`], { allowFailure: true }) || '';
+    // Get NightShift's version before the cherry-pick (HEAD's version)
+    const nightshiftVersion = runGit(basePath, ['show', `HEAD:${filePath}`], { allowFailure: true }) || '';
 
     // Get the upstream patch for this file
     const upstreamPatch = runGit(basePath, ['diff', `${hash}~1`, hash, '--', filePath], { allowFailure: true }) || '';
 
-    return { path: filePath, withMarkers, labratVersion, upstreamPatch };
+    return { path: filePath, withMarkers, nightshiftVersion, upstreamPatch };
   });
 
   return { hash, subject, conflictingFiles };
@@ -788,11 +788,11 @@ export function applyUpstreamCommit(basePath: string, hash: string): ApplyResult
  * Pure function — no I/O, no side effects (D055).
  * Assembles sections:
  *   (a) upstream commit intent (hash, subject)
- *   (b) per-file conflict detail (merge markers, Labrat version, upstream patch)
- *   (c) optional Labrat project summary
+ *   (b) per-file conflict detail (merge markers, NightShift version, upstream patch)
+ *   (c) optional NightShift project summary
  *   (d) output format specification
  */
-export function buildAdaptationPrompt(context: ConflictContext, labratSummary?: string): string {
+export function buildAdaptationPrompt(context: ConflictContext, nightshiftSummary?: string): string {
   const sections: string[] = [];
 
   // (a) Upstream commit intent
@@ -812,9 +812,9 @@ export function buildAdaptationPrompt(context: ConflictContext, labratSummary?: 
     sections.push(file.withMarkers);
     sections.push('```');
     sections.push('');
-    sections.push('#### Labrat\'s Version (pre-conflict)');
+    sections.push('#### NightShift\'s Version (pre-conflict)');
     sections.push('```');
-    sections.push(file.labratVersion);
+    sections.push(file.nightshiftVersion);
     sections.push('```');
     sections.push('');
     sections.push('#### Upstream Patch');
@@ -824,17 +824,17 @@ export function buildAdaptationPrompt(context: ConflictContext, labratSummary?: 
     sections.push('');
   }
 
-  // (c) Optional Labrat project summary
-  if (labratSummary) {
-    sections.push('## Labrat Project Summary');
-    sections.push(labratSummary);
+  // (c) Optional NightShift project summary
+  if (nightshiftSummary) {
+    sections.push('## NightShift Project Summary');
+    sections.push(nightshiftSummary);
     sections.push('');
   }
 
   // (d) Output format specification
   sections.push('## Output Format');
   sections.push('');
-  sections.push('Produce the adapted version of each conflicting file. Preserve both Labrat\'s additions and the upstream fix intent.');
+  sections.push('Produce the adapted version of each conflicting file. Preserve both NightShift\'s additions and the upstream fix intent.');
   sections.push('Output each file as a fenced code block with a `// FILE: <path>` header as the first line inside the block.');
   sections.push('');
   sections.push('Example:');

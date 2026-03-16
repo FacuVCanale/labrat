@@ -144,7 +144,7 @@ async function main() {
   assertEq(sanitizeMetricName('good_name'), 'good_name', 'valid name unchanged');
   assertEq(sanitizeMetricName('_private'), '_private', 'leading underscore preserved');
   assertEq(sanitizeMetricName('a.b.c'), 'a_b_c', 'dots → underscores');
-  assertEq(sanitizeMetricName('labrat.duration_ms'), 'labrat_duration_ms', 'dot in labrat prefix');
+  assertEq(sanitizeMetricName('nightshift.duration_ms'), 'nightshift_duration_ms', 'dot in nightshift prefix');
 
   // ═══════════════════════════════════════════════════════════════════════
   // Circuit Breaker
@@ -268,10 +268,10 @@ async function main() {
       tags: Array<{ key: string; value: string }>;
     };
     assertEq(runBody.experiment_id, 'exp-123', 'run references experiment ID');
-    assert(runBody.run_name.startsWith('labrat-test-campaign-'), 'run name includes campaign');
-    assert(runBody.tags.some((t: { key: string }) => t.key === 'labrat.eval_command'), 'tags include eval command');
-    assert(runBody.tags.some((t: { key: string }) => t.key === 'labrat.research_question'), 'tags include research question');
-    assert(runBody.tags.some((t: { key: string }) => t.key === 'labrat.target_files'), 'tags include target files');
+    assert(runBody.run_name.startsWith('nightshift-test-campaign-'), 'run name includes campaign');
+    assert(runBody.tags.some((t: { key: string }) => t.key === 'nightshift.eval_command'), 'tags include eval command');
+    assert(runBody.tags.some((t: { key: string }) => t.key === 'nightshift.research_question'), 'tags include research question');
+    assert(runBody.tags.some((t: { key: string }) => t.key === 'nightshift.target_files'), 'tags include target files');
 
     // Verify dashboard URL
     const url = client.getDashboardUrl();
@@ -368,12 +368,12 @@ async function main() {
     };
     assertEq(logBody.run_id, 'run-1', 'log-batch references run ID');
 
-    // Verify metrics include eval + labrat metrics
+    // Verify metrics include eval + nightshift metrics
     const metricKeys = logBody.metrics.map((m: { key: string }) => m.key);
     assert(metricKeys.includes('val-bpb'), 'includes val-bpb metric');
     assert(metricKeys.includes('test accuracy'), 'includes test accuracy metric');
-    assert(metricKeys.includes('labrat.duration_ms'), 'includes duration metric');
-    assert(metricKeys.includes('labrat.cost_usd'), 'includes cost metric');
+    assert(metricKeys.includes('nightshift.duration_ms'), 'includes duration metric');
+    assert(metricKeys.includes('nightshift.cost_usd'), 'includes cost metric');
 
     // Verify step
     assert(logBody.metrics.every((m: { step: number }) => m.step === 3), 'all metrics at step 3');
@@ -437,7 +437,7 @@ async function main() {
         body: {
           data: {
             upsertBucket: {
-              bucket: { id: 'wandb-run-id', name: 'labrat-test-run' },
+              bucket: { id: 'wandb-run-id', name: 'nightshift-test-run' },
             },
           },
         },
@@ -475,17 +475,17 @@ async function main() {
     assert(gqlBody.query.includes('upsertBucket'), 'mutation is upsertBucket');
     assertEq(gqlBody.variables.entity, 'my-entity', 'entity in variables');
     assertEq(gqlBody.variables.project, 'my-project', 'project in variables');
-    assert(gqlBody.variables.name.startsWith('labrat-test-campaign-'), 'run name in variables');
+    assert(gqlBody.variables.name.startsWith('nightshift-test-campaign-'), 'run name in variables');
 
     // Verify config contains campaign info
     const config = JSON.parse(gqlBody.variables.config) as Record<string, { value: string }>;
-    assertEq(config['labrat.campaign_name'].value, 'test-campaign', 'config has campaign name');
-    assertEq(config['labrat.eval_command'].value, 'python eval.py', 'config has eval command');
-    assertEq(config['labrat.research_question'].value, 'Does X improve Y?', 'config has research question');
+    assertEq(config['nightshift.campaign_name'].value, 'test-campaign', 'config has campaign name');
+    assertEq(config['nightshift.eval_command'].value, 'python eval.py', 'config has eval command');
+    assertEq(config['nightshift.research_question'].value, 'Does X improve Y?', 'config has research question');
 
     // Verify dashboard URL
     const url = client.getDashboardUrl();
-    assertEq(url, 'https://api.wandb.ai/my-entity/my-project/runs/labrat-test-run', 'W&B dashboard URL correct');
+    assertEq(url, 'https://api.wandb.ai/my-entity/my-project/runs/nightshift-test-run', 'W&B dashboard URL correct');
 
     restoreFetch();
   }
@@ -544,8 +544,8 @@ async function main() {
     const historyRow = JSON.parse(fsBody.files['wandb-history.jsonl'].content[0]) as Record<string, number>;
     assert('val_bpb' in historyRow, 'val-bpb sanitized to val_bpb in history');
     assert('test_accuracy' in historyRow, 'test accuracy sanitized to test_accuracy in history');
-    assert('labrat_duration_ms' in historyRow, 'labrat.duration_ms sanitized');
-    assert('labrat_cost_usd' in historyRow, 'labrat.cost_usd sanitized');
+    assert('nightshift_duration_ms' in historyRow, 'nightshift.duration_ms sanitized');
+    assert('nightshift_cost_usd' in historyRow, 'nightshift.cost_usd sanitized');
     assertEq(historyRow._step, 5, 'step included in history row');
 
     // Verify summary

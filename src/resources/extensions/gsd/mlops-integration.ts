@@ -173,11 +173,11 @@ export class MLFlowClient implements MLOpsClient {
 
     // Create run
     const tags = [
-      { key: 'labrat.eval_command', value: campaign.evalCommand },
-      { key: 'labrat.target_files', value: campaign.targetFiles.join(',') },
+      { key: 'nightshift.eval_command', value: campaign.evalCommand },
+      { key: 'nightshift.target_files', value: campaign.targetFiles.join(',') },
     ];
     if (campaign.researchQuestion) {
-      tags.push({ key: 'labrat.research_question', value: campaign.researchQuestion });
+      tags.push({ key: 'nightshift.research_question', value: campaign.researchQuestion });
     }
 
     const runRes = await this.breaker.call(() =>
@@ -186,7 +186,7 @@ export class MLFlowClient implements MLOpsClient {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           experiment_id: this.experimentId,
-          run_name: `labrat-${campaign.name}-${Date.now()}`,
+          run_name: `nightshift-${campaign.name}-${Date.now()}`,
           start_time: Date.now(),
           tags,
         }),
@@ -207,9 +207,9 @@ export class MLFlowClient implements MLOpsClient {
       metrics.push({ key, value, timestamp, step });
     }
 
-    // Add labrat orchestration metrics
-    metrics.push({ key: 'labrat.duration_ms', value: result.duration, timestamp, step });
-    metrics.push({ key: 'labrat.cost_usd', value: result.cost, timestamp, step });
+    // Add nightshift orchestration metrics
+    metrics.push({ key: 'nightshift.duration_ms', value: result.duration, timestamp, step });
+    metrics.push({ key: 'nightshift.cost_usd', value: result.cost, timestamp, step });
 
     try {
       // Log metrics batch
@@ -228,7 +228,7 @@ export class MLFlowClient implements MLOpsClient {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             run_id: this.runId,
-            key: `labrat.experiment.${result.id}.decision`,
+            key: `nightshift.experiment.${result.id}.decision`,
             value: result.decision.decision,
           }),
         }),
@@ -239,7 +239,7 @@ export class MLFlowClient implements MLOpsClient {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             run_id: this.runId,
-            key: `labrat.experiment.${result.id}.id`,
+            key: `nightshift.experiment.${result.id}.id`,
             value: result.id,
           }),
         }),
@@ -318,15 +318,15 @@ export class WandbClient implements MLOpsClient {
     `;
 
     const config = JSON.stringify({
-      'labrat.campaign_name': { value: campaign.name },
-      'labrat.target_files': { value: campaign.targetFiles.join(',') },
-      'labrat.eval_command': { value: campaign.evalCommand },
+      'nightshift.campaign_name': { value: campaign.name },
+      'nightshift.target_files': { value: campaign.targetFiles.join(',') },
+      'nightshift.eval_command': { value: campaign.evalCommand },
       ...(campaign.researchQuestion
-        ? { 'labrat.research_question': { value: campaign.researchQuestion } }
+        ? { 'nightshift.research_question': { value: campaign.researchQuestion } }
         : {}),
     });
 
-    const runName = `labrat-${campaign.name}-${Date.now()}`;
+    const runName = `nightshift-${campaign.name}-${Date.now()}`;
 
     const res = await this.breaker.call(() =>
       fetch(`${this.baseUrl}/graphql`, {
@@ -362,8 +362,8 @@ export class WandbClient implements MLOpsClient {
     for (const [key, value] of Object.entries(result.metrics)) {
       historyRow[sanitizeMetricName(key)] = value;
     }
-    historyRow[sanitizeMetricName('labrat.duration_ms')] = result.duration;
-    historyRow[sanitizeMetricName('labrat.cost_usd')] = result.cost;
+    historyRow[sanitizeMetricName('nightshift.duration_ms')] = result.duration;
+    historyRow[sanitizeMetricName('nightshift.cost_usd')] = result.cost;
 
     // Build summary (latest values)
     const summary: Record<string, number> = {};
@@ -472,26 +472,26 @@ export function createMLOpsClient(config?: MLOpsConfig): MLOpsClient | null {
   if (config.platform === 'mlflow') {
     const trackingUri = config.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
     if (!trackingUri) {
-      console.log('[labrat:mlops] MLFlow platform configured but no tracking URI found (set MLFLOW_TRACKING_URI or config.trackingUri). Skipping.');
+      console.log('[nightshift:mlops] MLFlow platform configured but no tracking URI found (set MLFLOW_TRACKING_URI or config.trackingUri). Skipping.');
       return null;
     }
-    console.log(`[labrat:mlops] MLFlow client created, tracking URI: ${trackingUri}`);
+    console.log(`[nightshift:mlops] MLFlow client created, tracking URI: ${trackingUri}`);
     return new MLFlowClient(trackingUri);
   }
 
   if (config.platform === 'wandb') {
     const apiKey = process.env.WANDB_API_KEY;
     if (!apiKey) {
-      console.log('[labrat:mlops] W&B platform configured but WANDB_API_KEY not set. Skipping.');
+      console.log('[nightshift:mlops] W&B platform configured but WANDB_API_KEY not set. Skipping.');
       return null;
     }
     const baseUrl = process.env.WANDB_BASE_URL ?? config.trackingUri ?? 'https://api.wandb.ai';
     const entity = config.entity ?? process.env.WANDB_ENTITY ?? 'default';
-    const project = config.project ?? process.env.WANDB_PROJECT ?? 'labrat';
-    console.log(`[labrat:mlops] W&B client created, entity: ${entity}, project: ${project}`);
+    const project = config.project ?? process.env.WANDB_PROJECT ?? 'nightshift';
+    console.log(`[nightshift:mlops] W&B client created, entity: ${entity}, project: ${project}`);
     return new WandbClient(baseUrl, apiKey, entity, project);
   }
 
-  console.log(`[labrat:mlops] Unknown platform '${config.platform}'. Skipping.`);
+  console.log(`[nightshift:mlops] Unknown platform '${config.platform}'. Skipping.`);
   return null;
 }

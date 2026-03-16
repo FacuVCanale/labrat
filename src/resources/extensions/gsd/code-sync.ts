@@ -2,8 +2,8 @@
 // Pushes experiment branches to a git remote and verifies the remote ref matches local HEAD.
 // Standalone module — imports only runGit from git-service.ts.
 
-import { runGit } from './git-service.ts';
-import type { SyncResult } from './types.ts';
+import { runGit } from './git-service.js';
+import type { SyncResult } from './types.js';
 
 /**
  * Push the current branch to a git remote and verify the remote ref matches local HEAD.

@@ -356,7 +356,7 @@ export interface VerifyResult {
 export interface ConflictFileInfo {
   path: string;
   withMarkers: string;             // file content with merge markers (<<<, ===, >>>)
-  labratVersion: string;           // Labrat's pre-cherry-pick version of the file
+  nightshiftVersion: string;           // NightShift's pre-cherry-pick version of the file
   upstreamPatch: string;           // upstream's diff for this file
 }
 

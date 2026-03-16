@@ -79,7 +79,7 @@ export function shouldBlockContextWrite(
 }
 
 // ── ASCII logo ────────────────────────────────────────────────────────────
-const LABRAT_LOGO_LINES = [
+const NIGHTSHIFT_LOGO_LINES = [
   "  ██╗      █████╗ ██████╗ ██████╗  █████╗ ████████╗",
   "  ██║     ██╔══██╗██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝",
   "  ██║     ███████║██████╔╝██████╔╝███████║   ██║   ",
@@ -190,10 +190,10 @@ export default function (pi: ExtensionAPI) {
     // Theme access throws in RPC mode (no TUI) — header is decorative, skip it
     try {
       const theme = ctx.ui.theme;
-      const version = process.env.LABRAT_VERSION || "0.0.0";
+      const version = process.env.NIGHTSHIFT_VERSION || "0.0.0";
 
-      const logoText = LABRAT_LOGO_LINES.map((line) => theme.fg("accent", line)).join("\n");
-      const titleLine = `  ${theme.bold("Labrat")} ${theme.fg("dim", `v${version}`)}`;
+      const logoText = NIGHTSHIFT_LOGO_LINES.map((line) => theme.fg("accent", line)).join("\n");
+      const titleLine = `  ${theme.bold("NightShift")} ${theme.fg("dim", `v${version}`)}`;
 
       const headerContent = `${logoText}\n${titleLine}`;
       ctx.ui.setHeader((_ui, _theme) => new Text(headerContent, 1, 0));
@@ -217,10 +217,10 @@ export default function (pi: ExtensionAPI) {
       // Remote questions module not available — ignore
     }
 
-    // Auto-start trigger — `labrat start` sets LABRAT_AUTO_START=1 to bootstrap
+    // Auto-start trigger — `nightshift start` sets NIGHTSHIFT_AUTO_START=1 to bootstrap
     // campaign and immediately enter auto-mode after session initialization.
-    if (process.env.LABRAT_AUTO_START === "1") {
-      delete process.env.LABRAT_AUTO_START;
+    if (process.env.NIGHTSHIFT_AUTO_START === "1") {
+      delete process.env.NIGHTSHIFT_AUTO_START;
       // Schedule auto-start — uses the same ctx cast pattern as fireStatusViaCommand
       setTimeout(() => {
         startAuto(ctx as ExtensionCommandContext, pi, process.cwd(), false).catch(() => {});

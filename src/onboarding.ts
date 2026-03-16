@@ -102,7 +102,7 @@ async function loadClack(): Promise<ClackModule> {
   try {
     return await import('@clack/prompts')
   } catch {
-    throw new Error('[labrat] @clack/prompts not found — onboarding wizard requires this dependency')
+    throw new Error('[nightshift] @clack/prompts not found — onboarding wizard requires this dependency')
   }
 }
 
@@ -173,13 +173,13 @@ export async function runOnboarding(authStorage: AuthStorage): Promise<void> {
     ;[p, pc] = await Promise.all([loadClack(), loadPico()])
   } catch (err) {
     // If clack isn't available, fall back silently — don't block boot
-    process.stderr.write(`[labrat] Onboarding wizard unavailable: ${err instanceof Error ? err.message : String(err)}\n`)
+    process.stderr.write(`[nightshift] Onboarding wizard unavailable: ${err instanceof Error ? err.message : String(err)}\n`)
     return
   }
 
   // ── Intro ─────────────────────────────────────────────────────────────────
   process.stderr.write(renderLogo(pc.cyan))
-  p.intro(pc.bold('Welcome to Labrat — let\'s get you set up'))
+  p.intro(pc.bold('Welcome to NightShift — let\'s get you set up'))
 
   // ── LLM Provider Selection ────────────────────────────────────────────────
   let llmConfigured = false
@@ -188,11 +188,11 @@ export async function runOnboarding(authStorage: AuthStorage): Promise<void> {
   } catch (err) {
     // User cancelled (Ctrl+C in clack throws) or unexpected error
     if (isCancelError(p, err)) {
-      p.cancel('Setup cancelled — you can run /login inside Labrat later.')
+      p.cancel('Setup cancelled — you can run /login inside NightShift later.')
       return
     }
     p.log.warn(`LLM setup failed: ${err instanceof Error ? err.message : String(err)}`)
-    p.log.info('You can configure your LLM provider later with /login inside Labrat.')
+    p.log.info('You can configure your LLM provider later with /login inside NightShift.')
   }
 
   // ── Web Search Provider ──────────────────────────────────────────────────
@@ -231,13 +231,13 @@ export async function runOnboarding(authStorage: AuthStorage): Promise<void> {
       summaryLines.push(`${pc.green('✓')} LLM provider configured`)
     }
   } else {
-    summaryLines.push(`${pc.yellow('↷')} LLM provider: skipped — use /login inside Labrat`)
+    summaryLines.push(`${pc.yellow('↷')} LLM provider: skipped — use /login inside NightShift`)
   }
 
   if (searchConfigured) {
     summaryLines.push(`${pc.green('✓')} Web search: ${searchConfigured}`)
   } else {
-    summaryLines.push(`${pc.dim('↷')} Web search: not configured — use /search-provider inside Labrat`)
+    summaryLines.push(`${pc.dim('↷')} Web search: not configured — use /search-provider inside NightShift`)
   }
 
   if (toolKeyCount > 0) {
@@ -247,7 +247,7 @@ export async function runOnboarding(authStorage: AuthStorage): Promise<void> {
   }
 
   p.note(summaryLines.join('\n'), 'Setup complete')
-  p.outro(pc.dim('Launching Labrat...'))
+  p.outro(pc.dim('Launching NightShift...'))
 }
 
 // ─── LLM Authentication Step ──────────────────────────────────────────────────
@@ -271,7 +271,7 @@ async function runLlmStep(p: ClackModule, pc: PicoModule, authStorage: AuthStora
   authOptions.push(
     { value: 'browser', label: 'Sign in with your browser', hint: 'recommended — same login as claude.ai / ChatGPT' },
     { value: 'api-key', label: 'Paste an API key', hint: 'from your provider dashboard' },
-    { value: 'skip', label: 'Skip for now', hint: 'use /login inside Labrat later' },
+    { value: 'skip', label: 'Skip for now', hint: 'use /login inside NightShift later' },
   )
 
   const method = await p.select({
@@ -453,7 +453,7 @@ async function runWebSearchStep(
   options.push(
     { value: 'brave', label: 'Brave Search', hint: 'requires API key — brave.com/search/api' },
     { value: 'tavily', label: 'Tavily', hint: 'requires API key — tavily.com' },
-    { value: 'skip', label: 'Skip for now', hint: 'use /search-provider inside Labrat later' },
+    { value: 'skip', label: 'Skip for now', hint: 'use /search-provider inside NightShift later' },
   )
 
   const choice = await p.select({

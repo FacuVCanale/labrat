@@ -293,11 +293,11 @@ async function runSingleAgent(
 		let wasAborted = false;
 
 		const exitCode = await new Promise<number>((resolve) => {
-			const bundledPaths = (process.env.LABRAT_BUNDLED_EXTENSION_PATHS ?? "").split(":").filter(Boolean);
+			const bundledPaths = (process.env.NIGHTSHIFT_BUNDLED_EXTENSION_PATHS ?? "").split(":").filter(Boolean);
 			const extensionArgs = bundledPaths.flatMap(p => ["--extension", p]);
 			const proc = spawn(
 				process.execPath,
-				[process.env.LABRAT_BIN_PATH!, ...extensionArgs, ...args],
+				[process.env.NIGHTSHIFT_BIN_PATH!, ...extensionArgs, ...args],
 				{ cwd: cwd ?? defaultCwd, shell: false, stdio: ["ignore", "pipe", "pipe"] },
 			);
 			let buffer = "";

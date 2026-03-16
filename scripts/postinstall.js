@@ -62,7 +62,7 @@ const banner =
     pc = (await import('picocolors')).default
   } catch {
     // Clack or picocolors unavailable — fall back to minimal output
-    process.stderr.write(`  Run labrat to get started.\n\n`)
+    process.stderr.write(`  Run nightshift to get started.\n\n`)
     await run('npx playwright install chromium')
     return
   }
@@ -103,7 +103,7 @@ const banner =
     (r) => (r.ok ? pc.green('✓') : pc.yellow('⚠')) + ' ' + r.label
   )
   lines.push('')
-  lines.push('Run ' + pc.cyan('labrat') + ' to get started.')
+  lines.push('Run ' + pc.cyan('nightshift') + ' to get started.')
 
   p.note(lines.join('\n'), 'Installed')
 
