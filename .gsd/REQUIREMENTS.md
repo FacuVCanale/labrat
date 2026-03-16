@@ -14,7 +14,94 @@ Guidelines:
 
 ## Active
 
-### R027 — Compute Backend Interface
+### R042 — NightShift Naming Consistency
+- Class: launchability
+- Status: active
+- Description: All user-facing surfaces (prompts, CLI output, error messages, README, examples) say "NightShift" — no "GSD", "labrat", or "Labrat" leaking through. Internal code identifiers (directory names, import paths like @gsd/) are left alone.
+- Why it matters: The product's identity is NightShift. Mixed naming confuses users and looks unfinished.
+- Source: user
+- Primary owning slice: M005/S01
+- Supporting slices: none
+- Validation: unmapped
+- Notes: User-facing only. Internal plumbing (src/resources/extensions/gsd/, @gsd/ imports) stays as-is to avoid breakage.
+
+### R043 — Karpathy Auto-Research Analysis
+- Class: core-capability
+- Status: active
+- Description: Structured analysis of Karpathy's auto-research approach: prompts, flow, what works, what to adopt/avoid. Written to a research artifact that feeds into prompt design.
+- Why it matters: The prompt design for hypothesis-driven research should be grounded in proven patterns, not invented from scratch.
+- Source: user
+- Primary owning slice: M005/S02
+- Supporting slices: M005/S04
+- Validation: unmapped
+- Notes: Research artifact consumed by S04 (prompt design slice).
+
+### R044 — /nightshift Interview & Scaffold
+- Class: core-capability
+- Status: active
+- Description: `/nightshift` command asks research-specific questions (target files, eval command, metrics, priors/things to try or avoid, number of hypotheses, number of tries per hypothesis), then generates GSD scaffold with hypothesis-slices and experiment-tasks.
+- Why it matters: Entry point for the hypothesis-driven flow. Replaces the development-oriented `/gsd` interview for research use cases.
+- Source: user
+- Primary owning slice: M005/S03
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Generates standard GSD milestone/slice/task structure but with hypothesis-native terminology in user-facing artifacts.
+
+### R045 — Hypothesis-Native Prompts
+- Class: core-capability
+- Status: active
+- Description: Each agent phase (research, plan, execute, verify) has prompts tuned for hypothesis-driven research instead of software development. Researcher does genuine deep search (web, docs, domain investigation). Planner forms grounded hypothesis. Executor modifies target files. Verifier runs eval and produces structured analysis.
+- Why it matters: The current prompts tell the agent "identify a change that could improve metrics" with no domain knowledge. Research-tuned prompts make hypotheses informed rather than blind guessing.
+- Source: user
+- Primary owning slice: M005/S04
+- Supporting slices: M005/S02
+- Validation: unmapped
+- Notes: Research prompt must use the full tool suite (web search, library docs, fetch_page) every time — not shallow one-search theater.
+
+### R046 — Deep Research Per Hypothesis
+- Class: core-capability
+- Status: active
+- Description: The research agent for each hypothesis performs genuine deep investigation — follows links, reads library docs, understands techniques, forms a knowledge base. Not one search and done.
+- Why it matters: The agent has no domain-specific skills (no ML skill, no optimization skill). Research is what makes hypotheses informed rather than random changes. Shallow research theater is the worst outcome.
+- Source: user
+- Primary owning slice: M005/S04
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Negative constraint from user: "never feel like shallow research theater."
+
+### R047 — Verifier Analysis & Learning Loop
+- Class: core-capability
+- Status: active
+- Description: The verify agent runs eval, decides keep/discard, AND produces structured analysis of why the result happened (what worked, what didn't, what to signal to the next experiment). This analysis feeds into the next experiment's plan agent as context.
+- Why it matters: Creates a learning loop between experiments within a hypothesis. Each experiment builds on the previous one's analysis, not just raw metrics.
+- Source: user
+- Primary owning slice: M005/S05
+- Supporting slices: M005/S04
+- Validation: unmapped
+- Notes: Analysis must be structured enough that the plan agent can act on it, not just prose narrative.
+
+### R048 — Hypothesis→Experiment State Flow
+- Class: core-capability
+- Status: active
+- Description: The state machine handles the hypothesis→experiment mapping correctly. Research runs once per hypothesis (slice-level). Plan→execute→verify run per experiment (task-level). Subsequent experiments within a hypothesis receive prior experiment results and verifier analysis as context.
+- Why it matters: The state machine must dispatch the right agent with the right context at the right time. Crash recovery must work across the new flow.
+- Source: user
+- Primary owning slice: M005/S05
+- Supporting slices: none
+- Validation: unmapped
+- Notes: Leverages existing GSD state machine (research-slice, plan-slice, execute-task, complete-slice). May need per-experiment plan→execute→verify sub-unit cycling.
+
+### R049 — End-to-End Hypothesis Flow
+- Class: integration
+- Status: active
+- Description: Full flow works: `/nightshift` → interview → `/nightshift auto` → for each hypothesis: research → for each experiment: plan → execute → verify → next experiment → next hypothesis. All infrastructure (crash recovery, git, eval, MLOps, compute backends, budget guards) works with the new flow.
+- Why it matters: The integration proof. Individual pieces working doesn't mean the assembled system works.
+- Source: user
+- Primary owning slice: M005/S06
+- Supporting slices: M005/S01, M005/S02, M005/S03, M005/S04, M005/S05
+- Validation: unmapped
+- Notes: Must exercise real eval command, real git commit/revert, real hypothesis→experiment cycling.
+
 - Class: core-capability
 - Status: validated
 - Description: A pluggable `ComputeBackend` interface that takes code state (git ref) + eval command + timeout → returns stdout/stderr/exit code/timing. Local subprocess is the default backend. All backends implement this same contract.
@@ -630,10 +717,18 @@ Guidelines:
 | R039 | core-capability | deferred | none | none | unmapped |
 | R040 | anti-feature | out-of-scope | none | none | n/a |
 | R041 | anti-feature | out-of-scope | none | none | n/a |
+| R042 | launchability | active | M005/S01 | none | unmapped |
+| R043 | core-capability | active | M005/S02 | M005/S04 | unmapped |
+| R044 | core-capability | active | M005/S03 | none | unmapped |
+| R045 | core-capability | active | M005/S04 | M005/S02 | unmapped |
+| R046 | core-capability | active | M005/S04 | none | unmapped |
+| R047 | core-capability | active | M005/S05 | M005/S04 | unmapped |
+| R048 | core-capability | active | M005/S05 | none | unmapped |
+| R049 | integration | active | M005/S06 | M005/S01-S05 | unmapped |
 
 ## Coverage Summary
 
-- Active requirements: 0
-- Mapped to slices: 0
+- Active requirements: 8
+- Mapped to slices: 8
 - Validated: 30
 - Unmapped active requirements: 0
