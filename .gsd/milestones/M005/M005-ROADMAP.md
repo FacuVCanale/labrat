@@ -57,7 +57,7 @@ This milestone is complete only when all are true:
 - [x] **S02: Karpathy Auto-Research Analysis** `risk:medium` `depends:[]`
   > After this: Structured research artifact with Karpathy's auto-research prompts, flow patterns, what works, what to adopt/avoid. Feeds directly into S04 prompt design.
 
-- [ ] **S03: /nightshift Interview & Scaffold** `risk:medium` `depends:[S01]`
+- [x] **S03: /nightshift Interview & Scaffold** `risk:medium` `depends:[S01]`
   > After this: User runs `/nightshift`, answers research questions (targets, eval, metrics, priors, #hypotheses, #tries/hypothesis), gets GSD scaffold with hypothesis-slices and experiment-tasks. `/nightshift auto` can be started.
 
 - [ ] **S04: Hypothesis-Native Prompts** `risk:high` `depends:[S02,S03]`

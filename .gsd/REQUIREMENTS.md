@@ -38,13 +38,13 @@ Guidelines:
 
 ### R044 — /nightshift Interview & Scaffold
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: `/nightshift` command asks research-specific questions (target files, eval command, metrics, priors/things to try or avoid, number of hypotheses, number of tries per hypothesis), then generates GSD scaffold with hypothesis-slices and experiment-tasks.
 - Why it matters: Entry point for the hypothesis-driven flow. Replaces the development-oriented `/gsd` interview for research use cases.
 - Source: user
 - Primary owning slice: M005/S03
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M005/S03 — `/nightshift` registered as interactive command, interview collects 6 fields via programmatic wizard, `generateNightShiftScaffold` pure function produces parser-compatible scaffold. 8 contract tests (99 assertions) prove roundtrip through parseRoadmapSlices, parsePlan, parseCampaignConfig. Edge cases: 1×1, 10+ hypotheses padding, priors present/absent, mixed metric directions. NightShift naming verified (zero GSD/labrat hits).
 - Notes: Generates standard GSD milestone/slice/task structure but with hypothesis-native terminology in user-facing artifacts.
 
 ### R045 — Hypothesis-Native Prompts
@@ -553,6 +553,18 @@ Guidelines:
 - Description: All user-facing surfaces (prompts, CLI output, error messages, README, examples) say "NightShift" — no "GSD", "labrat", or "Labrat" leaking through. Internal code identifiers unchanged.
 - Validation: M005/S01 — 28 prompt files, 10 TS files, templates, docs, README, examples renamed. Zero GSD/labrat in user-facing surfaces. 726 tests pass.
 
+### R043 — Karpathy Auto-Research Analysis
+- Class: core-capability
+- Status: validated
+- Description: Structured analysis of Karpathy's auto-research approach: prompts, flow, what works, what to adopt/avoid. Written to a research artifact that feeds into prompt design.
+- Validation: M005/S02 — S02-RESEARCH.md with 19 sections: architecture analysis, experiment loop mechanics, 6 key design principles, adopt/avoid tables, prompt fragments for all 4 agent phases, 6 cited primary sources.
+
+### R044 — /nightshift Interview & Scaffold
+- Class: core-capability
+- Status: validated
+- Description: `/nightshift` command asks research-specific questions, generates GSD scaffold with hypothesis-slices and experiment-tasks.
+- Validation: M005/S03 — `/nightshift` registered, interview collects 6 fields, `generateNightShiftScaffold` produces parser-compatible scaffold. 8 contract tests (99 assertions) prove roundtrip through all three parsers. Edge cases: 1×1, 10+ hypotheses, priors, mixed metrics, naming compliance.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -725,7 +737,7 @@ Guidelines:
 | R041 | anti-feature | out-of-scope | none | none | n/a |
 | R042 | launchability | validated | M005/S01 | none | M005/S01 |
 | R043 | core-capability | validated | M005/S02 | M005/S04 | M005/S02 |
-| R044 | core-capability | active | M005/S03 | none | unmapped |
+| R044 | core-capability | validated | M005/S03 | none | M005/S03 |
 | R045 | core-capability | active | M005/S04 | M005/S02 | unmapped |
 | R046 | core-capability | active | M005/S04 | none | unmapped |
 | R047 | core-capability | active | M005/S05 | M005/S04 | unmapped |
@@ -734,7 +746,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 6
-- Mapped to slices: 6
-- Validated: 32
+- Active requirements: 5
+- Mapped to slices: 5
+- Validated: 33
 - Unmapped active requirements: 0

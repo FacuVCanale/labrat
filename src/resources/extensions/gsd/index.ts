@@ -25,7 +25,7 @@ import type {
 } from "@gsd/pi-coding-agent";
 import { createBashTool, createWriteTool, createReadTool, createEditTool, isToolCallEventType } from "@gsd/pi-coding-agent";
 
-import { registerGSDCommand } from "./commands.js";
+import { registerGSDCommand, registerNightShiftCommand } from "./commands.js";
 import { registerExitCommand } from "./exit-command.js";
 import { registerWorktreeCommand, getWorktreeOriginalCwd, getActiveWorktreeName } from "./worktree-command.js";
 import { saveFile, formatContinue, loadFile, parseContinue, parseSummary } from "./files.js";
@@ -90,6 +90,7 @@ const NIGHTSHIFT_LOGO_LINES = [
 
 export default function (pi: ExtensionAPI) {
   registerGSDCommand(pi);
+  registerNightShiftCommand(pi);
   registerWorktreeCommand(pi);
   registerExitCommand(pi);
 

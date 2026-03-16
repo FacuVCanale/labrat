@@ -297,6 +297,8 @@ export interface CampaignConfig {
   agenda?: AgendaConfig;
   /** Optional compute backend config. Absent = local execution. */
   compute?: ComputeConfig;
+  /** Optional prior knowledge / context for hypothesis generation. */
+  priors?: string;
 }
 
 // ─── Compute Backend Config ─────────────────────────────────────────────────

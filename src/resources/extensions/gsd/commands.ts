@@ -742,3 +742,47 @@ async function ensurePreferencesFile(
   await ctx.reload();
   ctx.ui.notify(`Edit ${path} to update ${scope} NightShift skill preferences.`, "info");
 }
+
+// ─── /nightshift command ──────────────────────────────────────────────────────
+
+export function registerNightShiftCommand(pi: ExtensionAPI): void {
+  // Lazy import to avoid circular dependency at module load
+  const lazyInterview = () => import("./nightshift-interview.js");
+
+  pi.registerCommand("nightshift", {
+    description: "NightShift research interview — set up a hypothesis-driven research campaign, or start auto-mode with /nightshift auto",
+
+    getArgumentCompletions: (prefix: string) => {
+      const subcommands = ["auto"];
+      const parts = prefix.trim().split(/\s+/);
+      if (parts.length <= 1) {
+        return subcommands
+          .filter((cmd) => cmd.startsWith(parts[0] ?? ""))
+          .map((cmd) => ({ value: cmd, label: cmd }));
+      }
+      return [];
+    },
+
+    async handler(args: string, ctx: ExtensionCommandContext) {
+      const trimmed = (typeof args === "string" ? args : "").trim();
+      const basePath = process.cwd();
+
+      if (trimmed === "auto" || trimmed.startsWith("auto ")) {
+        await startAuto(ctx, pi, basePath);
+        return;
+      }
+
+      if (trimmed === "" || trimmed === "interview") {
+        const { showNightShiftInterview } = await lazyInterview();
+        await showNightShiftInterview(ctx, pi, basePath);
+        return;
+      }
+
+      ctx.ui.notify(
+        `Unknown: /nightshift ${trimmed}. Use /nightshift or /nightshift auto.`,
+        "warning",
+      );
+    },
+  });
+}
+
