@@ -60,7 +60,7 @@ This milestone is complete only when all are true:
 - [x] **S03: /nightshift Interview & Scaffold** `risk:medium` `depends:[S01]`
   > After this: User runs `/nightshift`, answers research questions (targets, eval, metrics, priors, #hypotheses, #tries/hypothesis), gets GSD scaffold with hypothesis-slices and experiment-tasks. `/nightshift auto` can be started.
 
-- [ ] **S04: Hypothesis-Native Prompts** `risk:high` `depends:[S02,S03]`
+- [x] **S04: Hypothesis-Native Prompts** `risk:high` `depends:[S02,S03]`
   > After this: Each agent phase (research, plan, execute, verify) has research-tuned prompts. The research prompt instructs genuine deep search. The verify prompt produces structured analysis. Prompts are grounded in Karpathy analysis from S02.
 
 - [ ] **S05: Learning Loop & State Flow** `risk:medium` `depends:[S04]`

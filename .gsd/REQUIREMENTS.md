@@ -49,24 +49,24 @@ Guidelines:
 
 ### R045 — Hypothesis-Native Prompts
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Each agent phase (research, plan, execute, verify) has prompts tuned for hypothesis-driven research instead of software development. Researcher does genuine deep search (web, docs, domain investigation). Planner forms grounded hypothesis. Executor modifies target files. Verifier runs eval and produces structured analysis.
 - Why it matters: The current prompts tell the agent "identify a change that could improve metrics" with no domain knowledge. Research-tuned prompts make hypotheses informed rather than blind guessing.
 - Source: user
 - Primary owning slice: M005/S04
 - Supporting slices: M005/S02
-- Validation: unmapped
+- Validation: M005/S04 — Four prompt templates (research-hypothesis.md, plan-experiment.md, execute-experiment.md, verify-experiment.md) with exported builder functions. 69 contract assertions proving template/builder parity, required content sections (tool names, safety boundaries, structured analysis, NEVER STOP), naming compliance. All four builders exported for S05 dispatch.
 - Notes: Research prompt must use the full tool suite (web search, library docs, fetch_page) every time — not shallow one-search theater.
 
 ### R046 — Deep Research Per Hypothesis
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: The research agent for each hypothesis performs genuine deep investigation — follows links, reads library docs, understands techniques, forms a knowledge base. Not one search and done.
 - Why it matters: The agent has no domain-specific skills (no ML skill, no optimization skill). Research is what makes hypotheses informed rather than random changes. Shallow research theater is the worst outcome.
 - Source: user
 - Primary owning slice: M005/S04
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M005/S04 — Research prompt explicitly names search-the-web, fetch_page, resolve_library, get_library_docs. Requires 3+ distinct sources. Prescribes multi-step process (understand → search broadly → read deeply → check library docs → synthesize). Contract tests verify all tool names and source requirement present. Runtime validation (agent actually follows prompt) deferred to S06.
 - Notes: Negative constraint from user: "never feel like shallow research theater."
 
 ### R047 — Verifier Analysis & Learning Loop
@@ -565,6 +565,18 @@ Guidelines:
 - Description: `/nightshift` command asks research-specific questions, generates GSD scaffold with hypothesis-slices and experiment-tasks.
 - Validation: M005/S03 — `/nightshift` registered, interview collects 6 fields, `generateNightShiftScaffold` produces parser-compatible scaffold. 8 contract tests (99 assertions) prove roundtrip through all three parsers. Edge cases: 1×1, 10+ hypotheses, priors, mixed metrics, naming compliance.
 
+### R045 — Hypothesis-Native Prompts
+- Class: core-capability
+- Status: validated
+- Description: Each agent phase (research, plan, execute, verify) has prompts tuned for hypothesis-driven research. Researcher does genuine deep search. Planner forms grounded hypothesis. Executor modifies target files. Verifier produces structured analysis.
+- Validation: M005/S04 — Four prompt templates with exported builder functions. 69 contract assertions proving template/builder parity, required content sections (tool names, safety boundaries, structured analysis, NEVER STOP), naming compliance. All four builders exported for S05 dispatch.
+
+### R046 — Deep Research Per Hypothesis
+- Class: core-capability
+- Status: validated
+- Description: Research agent for each hypothesis performs genuine deep investigation — follows links, reads library docs, understands techniques, forms a knowledge base.
+- Validation: M005/S04 — Research prompt names search-the-web, fetch_page, resolve_library, get_library_docs. Requires 3+ distinct sources. Multi-step research process prescribed. Contract tests verify all tool names and source requirement. Runtime validation deferred to S06.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -738,15 +750,15 @@ Guidelines:
 | R042 | launchability | validated | M005/S01 | none | M005/S01 |
 | R043 | core-capability | validated | M005/S02 | M005/S04 | M005/S02 |
 | R044 | core-capability | validated | M005/S03 | none | M005/S03 |
-| R045 | core-capability | active | M005/S04 | M005/S02 | unmapped |
-| R046 | core-capability | active | M005/S04 | none | unmapped |
+| R045 | core-capability | validated | M005/S04 | M005/S02 | M005/S04 |
+| R046 | core-capability | validated | M005/S04 | none | M005/S04 |
 | R047 | core-capability | active | M005/S05 | M005/S04 | unmapped |
 | R048 | core-capability | active | M005/S05 | none | unmapped |
 | R049 | integration | active | M005/S06 | M005/S01-S05 | unmapped |
 
 ## Coverage Summary
 
-- Active requirements: 5
-- Mapped to slices: 5
-- Validated: 33
+- Active requirements: 3
+- Mapped to slices: 3
+- Validated: 35
 - Unmapped active requirements: 0

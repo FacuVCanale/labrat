@@ -2040,6 +2040,324 @@ async function buildExperimentPrompt(
   });
 }
 
+// ─── Hypothesis Prompt Builders ───────────────────────────────────────────────
+
+export async function buildResearchHypothesisPrompt(
+  mid: string, sid: string, basePath: string,
+): Promise<string> {
+  const sliceDir = resolveSlicePath(basePath, mid, sid);
+
+  // Read campaign config
+  const config = parseCampaignConfig(sliceDir);
+  if (!config) {
+    throw new Error(`buildResearchHypothesisPrompt: no valid CAMPAIGN.json in ${sliceDir}`);
+  }
+
+  // Read target files — warn in prompt if unreadable
+  const targetSources: string[] = [];
+  for (const targetFile of config.targetFiles) {
+    const absPath = join(basePath, targetFile);
+    try {
+      if (existsSync(absPath)) {
+        const content = readFileSync(absPath, 'utf-8');
+        targetSources.push(`### \`${targetFile}\`\n\n\`\`\`\n${content.trim()}\n\`\`\``);
+      } else {
+        process.stderr.write(`[gsd] buildResearchHypothesisPrompt: target file not found: ${targetFile}\n`);
+        targetSources.push(`### \`${targetFile}\`\n\n⚠ file not found — this file does not exist yet. You may create it.`);
+      }
+    } catch (err) {
+      process.stderr.write(`[gsd] buildResearchHypothesisPrompt: error reading target file ${targetFile}: ${err}\n`);
+      targetSources.push(`### \`${targetFile}\`\n\n⚠ file not found — could not read this file.`);
+    }
+  }
+
+  // Format metric definitions
+  const metricDefs = config.evalConfig.metrics
+    .map(m => `- **${m.name}**: direction=${m.direction}, weight=${m.weight}`)
+    .join('\n');
+
+  // Research question — fall back to campaign name
+  const researchQuestion = config.researchQuestion || config.name;
+
+  // Read optional PRIORS.md
+  const priorsPath = join(sliceDir, 'PRIORS.md');
+  let priorsContext = '_No prior knowledge provided._';
+  if (existsSync(priorsPath)) {
+    try {
+      priorsContext = readFileSync(priorsPath, 'utf-8').trim();
+    } catch { /* use default */ }
+  }
+
+  // Relative slice dir for the template (tells agent where to write)
+  const sliceDirRel = relSlicePath(basePath, mid, sid);
+
+  return loadPrompt("research-hypothesis", {
+    milestoneId: mid,
+    sliceId: sid,
+    researchQuestion,
+    campaignName: config.name,
+    targetFileList: config.targetFiles.map(f => `\`${f}\``).join(', '),
+    maxExperiments: String(config.maxExperiments),
+    budgetPerExperiment: String(config.budgetPerExperiment),
+    metricDefinitions: metricDefs,
+    targetFileSources: targetSources.join('\n\n'),
+    priorsContext,
+    sliceDir: sliceDirRel,
+  });
+}
+
+export async function buildPlanExperimentPrompt(
+  mid: string, sid: string, basePath: string, experimentNumber: number,
+): Promise<string> {
+  const sliceDir = resolveSlicePath(basePath, mid, sid);
+
+  // Read campaign config
+  const config = parseCampaignConfig(sliceDir);
+  if (!config) {
+    throw new Error(`buildPlanExperimentPrompt: no valid CAMPAIGN.json in ${sliceDir}`);
+  }
+
+  // Read target files
+  const targetSources: string[] = [];
+  for (const targetFile of config.targetFiles) {
+    const absPath = join(basePath, targetFile);
+    try {
+      if (existsSync(absPath)) {
+        const content = readFileSync(absPath, 'utf-8');
+        targetSources.push(`### \`${targetFile}\`\n\n\`\`\`\n${content.trim()}\n\`\`\``);
+      } else {
+        process.stderr.write(`[gsd] buildPlanExperimentPrompt: target file not found: ${targetFile}\n`);
+        targetSources.push(`### \`${targetFile}\`\n\n⚠ file not found — this file does not exist yet. You may create it.`);
+      }
+    } catch (err) {
+      process.stderr.write(`[gsd] buildPlanExperimentPrompt: error reading target file ${targetFile}: ${err}\n`);
+      targetSources.push(`### \`${targetFile}\`\n\n⚠ file not found — could not read this file.`);
+    }
+  }
+
+  // Read experiment history
+  const allExperiments = readAllExperiments(sliceDir);
+  const { phaseContext, experiments: effectiveExperiments, bestMetrics: effectiveBestMetrics } =
+    config.agenda ? getPhasePromptOverrides(sliceDir, config.agenda, allExperiments, readBestMetrics(sliceDir)) :
+    { phaseContext: '', experiments: allExperiments, bestMetrics: readBestMetrics(sliceDir) };
+
+  const historyBlock = compressExperimentHistory(effectiveExperiments);
+  const experimentHistory = historyBlock || '_No prior experiments — this is the first one._';
+
+  let bestMetricsBlock: string;
+  if (effectiveBestMetrics && Object.keys(effectiveBestMetrics).length > 0) {
+    bestMetricsBlock = Object.entries(effectiveBestMetrics)
+      .map(([name, value]) => `- **${name}:** ${value.toFixed(4)}`)
+      .join('\n');
+  } else {
+    bestMetricsBlock = '_No baseline yet — this experiment establishes the first baseline._';
+  }
+
+  // Format metric definitions
+  const metricDefs = config.evalConfig.metrics
+    .map(m => `- **${m.name}**: direction=${m.direction}, weight=${m.weight}`)
+    .join('\n');
+
+  const researchQuestion = config.researchQuestion || config.name;
+
+  // Read optional HYPOTHESIS-RESEARCH.md
+  const researchPath = join(sliceDir, 'HYPOTHESIS-RESEARCH.md');
+  let researchFindings = '_No research findings available yet._';
+  if (existsSync(researchPath)) {
+    try {
+      researchFindings = readFileSync(researchPath, 'utf-8').trim();
+    } catch { /* use default */ }
+  }
+
+  // Read optional prior EXPERIMENT-NNN-ANALYSIS.md (most recent)
+  const priorAnalysis = readLatestExperimentAnalysis(sliceDir, experimentNumber);
+
+  return loadPrompt("plan-experiment", {
+    experimentNumber: String(experimentNumber),
+    milestoneId: mid,
+    sliceId: sid,
+    researchQuestion,
+    campaignName: config.name,
+    targetFileList: config.targetFiles.map(f => `\`${f}\``).join(', '),
+    maxExperiments: String(config.maxExperiments),
+    budgetPerExperiment: String(config.budgetPerExperiment),
+    phaseContext,
+    steeringContext: getSteeringPromptOverride(sliceDir),
+    metricDefinitions: metricDefs,
+    targetFileSources: targetSources.join('\n\n'),
+    bestMetrics: bestMetricsBlock,
+    experimentHistory,
+    researchFindings,
+    priorAnalysis,
+  });
+}
+
+export async function buildExecuteExperimentPrompt(
+  mid: string, sid: string, basePath: string, experimentNumber: number,
+  experimentPlan: string,
+): Promise<string> {
+  const sliceDir = resolveSlicePath(basePath, mid, sid);
+
+  // Read campaign config
+  const config = parseCampaignConfig(sliceDir);
+  if (!config) {
+    throw new Error(`buildExecuteExperimentPrompt: no valid CAMPAIGN.json in ${sliceDir}`);
+  }
+
+  // Read target files
+  const targetSources: string[] = [];
+  for (const targetFile of config.targetFiles) {
+    const absPath = join(basePath, targetFile);
+    try {
+      if (existsSync(absPath)) {
+        const content = readFileSync(absPath, 'utf-8');
+        targetSources.push(`### \`${targetFile}\`\n\n\`\`\`\n${content.trim()}\n\`\`\``);
+      } else {
+        process.stderr.write(`[gsd] buildExecuteExperimentPrompt: target file not found: ${targetFile}\n`);
+        targetSources.push(`### \`${targetFile}\`\n\n⚠ file not found — this file does not exist yet. You may create it.`);
+      }
+    } catch (err) {
+      process.stderr.write(`[gsd] buildExecuteExperimentPrompt: error reading target file ${targetFile}: ${err}\n`);
+      targetSources.push(`### \`${targetFile}\`\n\n⚠ file not found — could not read this file.`);
+    }
+  }
+
+  // Read experiment history
+  const allExperiments = readAllExperiments(sliceDir);
+  const bestMetricsRaw = readBestMetrics(sliceDir);
+  const { phaseContext, experiments: effectiveExperiments, bestMetrics: effectiveBestMetrics } =
+    config.agenda ? getPhasePromptOverrides(sliceDir, config.agenda, allExperiments, bestMetricsRaw) :
+    { phaseContext: '', experiments: allExperiments, bestMetrics: bestMetricsRaw };
+
+  const historyBlock = compressExperimentHistory(effectiveExperiments);
+  const experimentHistory = historyBlock || '_No prior experiments — this is the first one._';
+
+  let bestMetricsBlock: string;
+  if (effectiveBestMetrics && Object.keys(effectiveBestMetrics).length > 0) {
+    bestMetricsBlock = Object.entries(effectiveBestMetrics)
+      .map(([name, value]) => `- **${name}:** ${value.toFixed(4)}`)
+      .join('\n');
+  } else {
+    bestMetricsBlock = '_No baseline yet — this experiment establishes the first baseline._';
+  }
+
+  // Format metric definitions
+  const metricDefs = config.evalConfig.metrics
+    .map(m => `- **${m.name}**: direction=${m.direction}, weight=${m.weight}`)
+    .join('\n');
+
+  const researchQuestion = config.researchQuestion || config.name;
+
+  // Read optional HYPOTHESIS-RESEARCH.md
+  const researchPath = join(sliceDir, 'HYPOTHESIS-RESEARCH.md');
+  let researchFindings = '_No research findings available yet._';
+  if (existsSync(researchPath)) {
+    try {
+      researchFindings = readFileSync(researchPath, 'utf-8').trim();
+    } catch { /* use default */ }
+  }
+
+  // Read optional prior EXPERIMENT-NNN-ANALYSIS.md
+  const priorAnalysis = readLatestExperimentAnalysis(sliceDir, experimentNumber);
+
+  return loadPrompt("execute-experiment", {
+    experimentNumber: String(experimentNumber),
+    milestoneId: mid,
+    sliceId: sid,
+    researchQuestion,
+    campaignName: config.name,
+    targetFileList: config.targetFiles.map(f => `\`${f}\``).join(', '),
+    maxExperiments: String(config.maxExperiments),
+    budgetPerExperiment: String(config.budgetPerExperiment),
+    phaseContext,
+    steeringContext: getSteeringPromptOverride(sliceDir),
+    evalCommand: config.evalConfig.command,
+    evalTimeout: String(config.evalConfig.timeout),
+    evalRuns: String(config.evalConfig.runs || 1),
+    metricDefinitions: metricDefs,
+    targetFileSources: targetSources.join('\n\n'),
+    bestMetrics: bestMetricsBlock,
+    experimentHistory,
+    researchFindings,
+    priorAnalysis,
+    experimentPlan,
+  });
+}
+
+export async function buildVerifyExperimentPrompt(
+  mid: string, sid: string, basePath: string, experimentNumber: number,
+  currentResults: string,
+): Promise<string> {
+  const sliceDir = resolveSlicePath(basePath, mid, sid);
+
+  // Read campaign config
+  const config = parseCampaignConfig(sliceDir);
+  if (!config) {
+    throw new Error(`buildVerifyExperimentPrompt: no valid CAMPAIGN.json in ${sliceDir}`);
+  }
+
+  // Format metric definitions
+  const metricDefs = config.evalConfig.metrics
+    .map(m => `- **${m.name}**: direction=${m.direction}, weight=${m.weight}`)
+    .join('\n');
+
+  const researchQuestion = config.researchQuestion || config.name;
+
+  // Read experiment history
+  const allExperiments = readAllExperiments(sliceDir);
+  const historyBlock = compressExperimentHistory(allExperiments);
+  const experimentHistory = historyBlock || '_No prior experiments — this is the first one._';
+
+  // Read optional HYPOTHESIS-RESEARCH.md
+  const researchPath = join(sliceDir, 'HYPOTHESIS-RESEARCH.md');
+  let researchFindings = '_No research findings available yet._';
+  if (existsSync(researchPath)) {
+    try {
+      researchFindings = readFileSync(researchPath, 'utf-8').trim();
+    } catch { /* use default */ }
+  }
+
+  // Read optional prior EXPERIMENT-NNN-ANALYSIS.md
+  const priorAnalysis = readLatestExperimentAnalysis(sliceDir, experimentNumber);
+
+  // Relative slice dir for the template (tells agent where to write)
+  const sliceDirRel = relSlicePath(basePath, mid, sid);
+
+  return loadPrompt("verify-experiment", {
+    experimentNumber: String(experimentNumber),
+    milestoneId: mid,
+    sliceId: sid,
+    researchQuestion,
+    campaignName: config.name,
+    targetFileList: config.targetFiles.map(f => `\`${f}\``).join(', '),
+    maxExperiments: String(config.maxExperiments),
+    budgetPerExperiment: String(config.budgetPerExperiment),
+    metricDefinitions: metricDefs,
+    experimentHistory,
+    researchFindings,
+    priorAnalysis,
+    currentResults,
+    sliceDir: sliceDirRel,
+  });
+}
+
+/**
+ * Read the most recent EXPERIMENT-NNN-ANALYSIS.md prior to the given experiment number.
+ * Returns the file content, or a placeholder if none found.
+ */
+function readLatestExperimentAnalysis(sliceDir: string, currentExperimentNumber: number): string {
+  // Look backwards from the most recent experiment
+  for (let i = currentExperimentNumber - 1; i >= 1; i--) {
+    const analysisPath = join(sliceDir, `EXPERIMENT-${i}-ANALYSIS.md`);
+    if (existsSync(analysisPath)) {
+      try {
+        return readFileSync(analysisPath, 'utf-8').trim();
+      } catch { /* fall through */ }
+    }
+  }
+  return '_No prior experiment analysis available._';
+}
+
 // ─── Prompt Builders ──────────────────────────────────────────────────────────
 
 async function buildResearchMilestonePrompt(mid: string, midTitle: string, base: string): Promise<string> {
