@@ -1,4 +1,4 @@
-You are executing GSD auto-mode.
+You are executing NightShift auto-mode.
 
 ## UNIT: Plan Milestone {{milestoneId}} ("{{milestoneTitle}}")
 
@@ -11,7 +11,7 @@ Narrate your decomposition reasoning — why you're grouping work this way, what
 Then:
 1. Read the template at `~/.gsd/agent/extensions/gsd/templates/roadmap.md`
 2. Read `.gsd/REQUIREMENTS.md` if it exists. Treat **Active** requirements as the capability contract for planning. If it does not exist, continue in legacy compatibility mode but explicitly note that requirement coverage is operating without a contract.
-3. If a `GSD Skill Preferences` block is present in system context, use it to decide which skills to load and follow during planning, without overriding required roadmap formatting
+3. If a `NightShift Skill Preferences` block is present in system context, use it to decide which skills to load and follow during planning, without overriding required roadmap formatting
 4. Create the roadmap: decompose into demoable vertical slices — as many as the work genuinely needs, no more. A simple feature might be 1 slice. Don't decompose for decomposition's sake.
 5. Order by risk (high-risk first)
 6. Write `{{outputPath}}` with checkboxes, risk, depends, demo sentences, proof strategy, verification classes, milestone definition of done, **requirement coverage**, and a boundary map. Write success criteria as observable truths, not implementation tasks. If the milestone crosses multiple runtime boundaries, include an explicit final integration slice that proves the assembled system works end-to-end in a real environment

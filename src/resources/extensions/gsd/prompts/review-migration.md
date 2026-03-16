@@ -1,6 +1,6 @@
 ## Review Migrated .gsd Directory
 
-A `/gsd migrate` command just wrote a `.gsd/` directory from an old `.planning` source. Your job is to audit the output and verify it meets GSD-2 standards before the user starts working with it.
+A `/gsd migrate` command just wrote a `.gsd/` directory from an old `.planning` source. Your job is to audit the output and verify it meets NightShift standards before the user starts working with it.
 
 ### Source
 - Old `.planning` directory: `{{sourcePath}}`
@@ -63,4 +63,4 @@ Issues: <list any problems found>
 Fixes applied: <list any in-place fixes made>
 ```
 
-If the overall result is FAIL, explain what needs manual attention. If PASS WITH NOTES, explain what's imperfect but acceptable. If PASS, confirm the `.gsd` directory is ready for GSD-2 auto-mode.
+If the overall result is FAIL, explain what needs manual attention. If PASS WITH NOTES, explain what's imperfect but acceptable. If PASS, confirm the `.gsd` directory is ready for NightShift auto-mode.

@@ -16,13 +16,13 @@ Guidelines:
 
 ### R042 — NightShift Naming Consistency
 - Class: launchability
-- Status: active
+- Status: validated
 - Description: All user-facing surfaces (prompts, CLI output, error messages, README, examples) say "NightShift" — no "GSD", "labrat", or "Labrat" leaking through. Internal code identifiers (directory names, import paths like @gsd/) are left alone.
 - Why it matters: The product's identity is NightShift. Mixed naming confuses users and looks unfinished.
 - Source: user
 - Primary owning slice: M005/S01
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M005/S01 — 28 prompt files, 10 TS files, templates, docs, README, examples all say NightShift. Zero GSD/labrat in user-facing surfaces (verified by comprehensive rg). Internal identifiers (.gsd/, @gsd/, /gsd, TS types) preserved. 726 tests pass.
 - Notes: User-facing only. Internal plumbing (src/resources/extensions/gsd/, @gsd/ imports) stays as-is to avoid breakage.
 
 ### R043 — Karpathy Auto-Research Analysis
@@ -547,6 +547,12 @@ Guidelines:
 - Description: Campaign eval timeout forwarded to backend. SSH/Docker kill remote process on timeout.
 - Validation: M004/S05 — End-to-end dispatch proves timeout flows config → resolveBackend → backend.runEval. 19 end-to-end assertions.
 
+### R042 — NightShift Naming Consistency
+- Class: launchability
+- Status: validated
+- Description: All user-facing surfaces (prompts, CLI output, error messages, README, examples) say "NightShift" — no "GSD", "labrat", or "Labrat" leaking through. Internal code identifiers unchanged.
+- Validation: M005/S01 — 28 prompt files, 10 TS files, templates, docs, README, examples renamed. Zero GSD/labrat in user-facing surfaces. 726 tests pass.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -717,7 +723,7 @@ Guidelines:
 | R039 | core-capability | deferred | none | none | unmapped |
 | R040 | anti-feature | out-of-scope | none | none | n/a |
 | R041 | anti-feature | out-of-scope | none | none | n/a |
-| R042 | launchability | active | M005/S01 | none | unmapped |
+| R042 | launchability | validated | M005/S01 | none | M005/S01 |
 | R043 | core-capability | active | M005/S02 | M005/S04 | unmapped |
 | R044 | core-capability | active | M005/S03 | none | unmapped |
 | R045 | core-capability | active | M005/S04 | M005/S02 | unmapped |
@@ -728,7 +734,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 8
-- Mapped to slices: 8
-- Validated: 30
+- Active requirements: 7
+- Mapped to slices: 7
+- Validated: 31
 - Unmapped active requirements: 0

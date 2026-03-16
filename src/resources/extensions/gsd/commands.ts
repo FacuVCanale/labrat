@@ -43,7 +43,7 @@ function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportT
     doctorCommandSuffix: scope ? ` ${scope}` : "",
   });
 
-  const content = `Read the following GSD workflow protocol and execute exactly.\n\n${workflow}\n\n## Your Task\n\n${prompt}`;
+  const content = `Read the following NightShift workflow protocol and execute exactly.\n\n${workflow}\n\n## Your Task\n\n${prompt}`;
 
   pi.sendMessage(
     { customType: "gsd-doctor-heal", content, display: false },
@@ -53,7 +53,7 @@ function dispatchDoctorHeal(pi: ExtensionAPI, scope: string | undefined, reportT
 
 export function registerGSDCommand(pi: ExtensionAPI): void {
   pi.registerCommand("gsd", {
-    description: "GSD — Get Shit Done: /gsd next|auto|stop|status|queue|discuss|plan|prefs|doctor|migrate|remote|report|sync (discuss routes to steering during active campaigns)",
+    description: "NightShift — Get Shit Done: /gsd next|auto|stop|status|queue|discuss|plan|prefs|doctor|migrate|remote|report|sync (discuss routes to steering during active campaigns)",
 
     getArgumentCompletions: (prefix: string) => {
       const subcommands = ["next", "auto", "stop", "status", "queue", "discuss", "plan", "prefs", "doctor", "migrate", "remote", "report", "sync"];
@@ -202,7 +202,7 @@ async function handleStatus(ctx: ExtensionCommandContext): Promise<void> {
   const state = await deriveState(basePath);
 
   if (state.registry.length === 0) {
-    ctx.ui.notify("No GSD milestones found. Run /gsd to start.", "info");
+    ctx.ui.notify("No NightShift milestones found. Run /gsd to start.", "info");
     return;
   }
 
@@ -258,7 +258,7 @@ async function handlePrefs(args: string, ctx: ExtensionCommandContext): Promise<
       : `missing: ${canonicalGlobal}`;
     const projectStatus = projectPrefs ? `present: ${projectPrefs.path}` : `missing: ${getProjectGSDPreferencesPath()}`;
 
-    const lines = [`GSD skill prefs — global ${globalStatus}; project ${projectStatus}`];
+    const lines = [`NightShift skill prefs — global ${globalStatus}; project ${projectStatus}`];
 
     const effective = loadEffectiveGSDPreferences();
     let hasUnresolved = false;
@@ -297,7 +297,7 @@ async function handleDoctor(args: string, ctx: ExtensionCommandContext, pi: Exte
     scope: effectiveScope,
     includeWarnings: mode === "audit",
     maxIssues: mode === "audit" ? 50 : 12,
-    title: mode === "audit" ? "GSD doctor audit." : mode === "heal" ? "GSD doctor heal prep." : undefined,
+    title: mode === "audit" ? "NightShift doctor audit." : mode === "heal" ? "NightShift doctor heal prep." : undefined,
   });
 
   ctx.ui.notify(reportText, report.ok ? "info" : "warning");
@@ -523,7 +523,7 @@ async function handlePrefsWizard(
   const existing = scope === "project" ? loadProjectGSDPreferences() : loadGlobalGSDPreferences();
   const prefs: Record<string, unknown> = existing?.preferences ? { ...existing.preferences } : {};
 
-  ctx.ui.notify(`GSD preferences wizard (${scope}) — press Escape at any prompt to skip it.`, "info");
+  ctx.ui.notify(`NightShift preferences wizard (${scope}) — press Escape at any prompt to skip it.`, "info");
 
   // ─── Models ──────────────────────────────────────────────────────────────
   const modelPhases = ["research", "planning", "execution", "completion"] as const;
@@ -614,7 +614,7 @@ async function handlePrefsWizard(
   const frontmatter = serializePreferencesToFrontmatter(prefs);
 
   // Preserve existing body content (everything after closing ---)
-  let body = "\n# GSD Skill Preferences\n\nSee `~/.gsd/agent/extensions/gsd/docs/preferences-reference.md` for full field documentation and examples.\n";
+  let body = "\n# NightShift Skill Preferences\n\nSee `~/.gsd/agent/extensions/gsd/docs/preferences-reference.md` for full field documentation and examples.\n";
   if (existsSync(path)) {
     const existingContent = readFileSync(path, "utf-8");
     const closingIdx = existingContent.indexOf("\n---", existingContent.indexOf("---"));
@@ -729,16 +729,16 @@ async function ensurePreferencesFile(
   if (!existsSync(path)) {
     const template = await loadFile(join(dirname(fileURLToPath(import.meta.url)), "templates", "preferences.md"));
     if (!template) {
-      ctx.ui.notify("Could not load GSD preferences template.", "error");
+      ctx.ui.notify("Could not load NightShift preferences template.", "error");
       return;
     }
     await saveFile(path, template);
-    ctx.ui.notify(`Created ${scope} GSD skill preferences at ${path}`, "info");
+    ctx.ui.notify(`Created ${scope} NightShift skill preferences at ${path}`, "info");
   } else {
-    ctx.ui.notify(`Using existing ${scope} GSD skill preferences at ${path}`, "info");
+    ctx.ui.notify(`Using existing ${scope} NightShift skill preferences at ${path}`, "info");
   }
 
   await ctx.waitForIdle();
   await ctx.reload();
-  ctx.ui.notify(`Edit ${path} to update ${scope} GSD skill preferences.`, "info");
+  ctx.ui.notify(`Edit ${path} to update ${scope} NightShift skill preferences.`, "info");
 }

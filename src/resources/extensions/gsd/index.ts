@@ -80,12 +80,12 @@ export function shouldBlockContextWrite(
 
 // ── ASCII logo ────────────────────────────────────────────────────────────
 const NIGHTSHIFT_LOGO_LINES = [
-  "  ██╗      █████╗ ██████╗ ██████╗  █████╗ ████████╗",
-  "  ██║     ██╔══██╗██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝",
-  "  ██║     ███████║██████╔╝██████╔╝███████║   ██║   ",
-  "  ██║     ██╔══██║██╔══██╗██╔══██╗██╔══██║   ██║   ",
-  "  ███████╗██║  ██║██████╔╝██║  ██║██║  ██║   ██║   ",
-  "  ╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ",
+  "  ███╗   ██╗██╗ ██████╗ ██╗  ██╗████████╗███████╗██╗  ██╗██╗███████╗████████╗",
+  "  ████╗  ██║██║██╔════╝ ██║  ██║╚══██╔══╝██╔════╝██║  ██║██║██╔════╝╚══██╔══╝",
+  "  ██╔██╗ ██║██║██║  ███╗███████║   ██║   ███████╗███████║██║█████╗     ██║   ",
+  "  ██║╚██╗██║██║██║   ██║██╔══██║   ██║   ╚════██║██╔══██║██║██╔══╝     ██║   ",
+  "  ██║ ╚████║██║╚██████╔╝██║  ██║   ██║   ███████║██║  ██║██║██║        ██║   ",
+  "  ╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ",
 ];
 
 export default function (pi: ExtensionAPI) {
@@ -95,7 +95,7 @@ export default function (pi: ExtensionAPI) {
 
   // ── /kill — immediate exit (bypass cleanup) ─────────────────────────────
   pi.registerCommand("kill", {
-    description: "Exit GSD immediately (no cleanup)",
+    description: "Exit NightShift immediately (no cleanup)",
     handler: async (_args: string, _ctx: ExtensionCommandContext) => {
       process.exit(0);
     },
@@ -230,7 +230,7 @@ export default function (pi: ExtensionAPI) {
 
   // ── Ctrl+Alt+G shortcut — GSD dashboard overlay ────────────────────────
   pi.registerShortcut(Key.ctrlAlt("g"), {
-    description: shortcutDesc("Open GSD dashboard", "/gsd status"),
+    description: shortcutDesc("Open NightShift dashboard", "/gsd status"),
     handler: async (ctx) => {
       // Only show if .gsd/ exists
       if (!existsSync(join(process.cwd(), ".gsd"))) {
@@ -270,7 +270,7 @@ export default function (pi: ExtensionAPI) {
       // Emit warnings for unresolved skill references
       if (report.warnings.length > 0) {
         ctx.ui.notify(
-          `GSD skill preferences: ${report.warnings.length} unresolved skill${report.warnings.length === 1 ? "" : "s"}: ${report.warnings.join(", ")}`,
+          `NightShift skill preferences: ${report.warnings.length} unresolved skill${report.warnings.length === 1 ? "" : "s"}: ${report.warnings.join(", ")}`,
           "warning",
         );
       }
@@ -299,19 +299,19 @@ export default function (pi: ExtensionAPI) {
         `IMPORTANT: Ignore the "Current working directory" shown earlier in this prompt.`,
         `The actual current working directory is: ${process.cwd()}`,
         "",
-        `You are working inside a GSD worktree.`,
+        `You are working inside a NightShift worktree.`,
         `- Worktree name: ${worktreeName}`,
         `- Worktree path (this is the real cwd): ${process.cwd()}`,
         `- Main project: ${worktreeMainCwd}`,
         `- Branch: worktree/${worktreeName}`,
         "",
-        "All file operations, bash commands, and GSD state resolve against the worktree path above.",
+        "All file operations, bash commands, and NightShift state resolve against the worktree path above.",
         "Use /worktree merge to merge changes back. Use /worktree return to switch back to the main tree.",
       ].join("\n");
     }
 
     return {
-      systemPrompt: `${event.systemPrompt}\n\n[SYSTEM CONTEXT — GSD]\n\n${systemContent}${preferenceBlock}${newSkillsBlock}${worktreeBlock}`,
+      systemPrompt: `${event.systemPrompt}\n\n[SYSTEM CONTEXT — NightShift]\n\n${systemContent}${preferenceBlock}${newSkillsBlock}${worktreeBlock}`,
       ...(injection
         ? {
           message: {
@@ -556,7 +556,7 @@ async function buildTaskExecutionContextInjection(
   const resumeSection = await buildResumeSection(basePath, milestoneId, sliceId);
 
   return [
-    "[GSD Guided Execute Context]",
+    "[NightShift Guided Execute Context]",
     "Use this injected context as startup context for guided task execution. Treat the inlined task plan as the authoritative local execution contract. Use source artifacts to verify details and run checks.",
     "",
     resumeSection,

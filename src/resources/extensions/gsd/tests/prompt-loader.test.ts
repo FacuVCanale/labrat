@@ -46,7 +46,7 @@ test('loadPrompt loads the system template (no placeholders needed beyond declar
 
 	const result = loadPrompt('system', varsObj)
 	assert.ok(result.length > 0, 'system prompt should be non-empty')
-	assert.ok(result.includes('GSD'), 'system prompt should mention GSD')
+	assert.ok(result.includes('NightShift'), 'system prompt should mention NightShift')
 })
 
 test('loadPrompt returns trimmed content', () => {

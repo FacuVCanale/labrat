@@ -1,4 +1,4 @@
-You are executing GSD auto-mode.
+You are executing NightShift auto-mode.
 
 ## UNIT: Run UAT — {{milestoneId}}/{{sliceId}}
 
@@ -6,7 +6,7 @@ All relevant context has been preloaded below. Start working immediately without
 
 {{inlinedContext}}
 
-If a `GSD Skill Preferences` block is present in system context, use it to decide which skills to load and follow during UAT execution, without relaxing required verification or artifact rules.
+If a `NightShift Skill Preferences` block is present in system context, use it to decide which skills to load and follow during UAT execution, without relaxing required verification or artifact rules.
 
 ---
 

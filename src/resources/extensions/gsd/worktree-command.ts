@@ -539,12 +539,12 @@ async function handleList(
     const worktrees = listWorktrees(mainBase);
 
     if (worktrees.length === 0) {
-      ctx.ui.notify("No GSD worktrees found. Create one with /worktree <name>.", "info");
+      ctx.ui.notify("No NightShift worktrees found. Create one with /worktree <name>.", "info");
       return;
     }
 
     const cwd = process.cwd();
-    const lines = [CLR.header("GSD Worktrees"), ""];
+    const lines = [CLR.header("NightShift Worktrees"), ""];
     for (const wt of worktrees) {
       const isCurrent = cwd === wt.path
         || (existsSync(cwd) && existsSync(wt.path)
@@ -723,7 +723,7 @@ async function handleMerge(
       addedFiles: formatFiles(diffSummary.added),
       modifiedFiles: formatFiles(diffSummary.modified),
       removedFiles: formatFiles(diffSummary.removed),
-      gsdDiff: gsdDiff || "(no GSD artifact changes)",
+      gsdDiff: gsdDiff || "(no NightShift artifact changes)",
       codeDiff: codeDiff || "(no code changes)",
     });
 
@@ -738,7 +738,7 @@ async function handleMerge(
     );
 
     ctx.ui.notify(
-      `${CLR.ok("✓")} Merge helper started for ${CLR.name(name)} ${CLR.muted(`(${codeChanges} code + ${gsdChanges} GSD artifact change${totalChanges === 1 ? "" : "s"})`)}`,
+      `${CLR.ok("✓")} Merge helper started for ${CLR.name(name)} ${CLR.muted(`(${codeChanges} code + ${gsdChanges} NightShift artifact change${totalChanges === 1 ? "" : "s"})`)}`,
       "info",
     );
   } catch (error) {

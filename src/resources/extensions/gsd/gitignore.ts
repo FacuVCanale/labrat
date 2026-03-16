@@ -15,7 +15,7 @@ import { execSync } from "node:child_process";
  * No one ever wants these tracked.
  */
 const BASELINE_PATTERNS = [
-  // ── GSD runtime (not source artifacts) ──
+  // ── NightShift runtime (not source artifacts) ──
   ".gsd/activity/",
   ".gsd/runtime/",
   ".gsd/worktrees/",
@@ -95,7 +95,7 @@ export function ensureGitignore(basePath: string): boolean {
   // Build the block to append
   const block = [
     "",
-    "# ── GSD baseline (auto-generated) ──",
+    "# ── NightShift baseline (auto-generated) ──",
     ...missing,
     "",
   ].join("\n");
@@ -116,7 +116,7 @@ export function ensureGitignore(basePath: string): boolean {
  * Only removes from the index (`--cached`), never from disk. Idempotent.
  */
 export function untrackRuntimeFiles(basePath: string): void {
-  // The GSD runtime paths are the first 7 entries in BASELINE_PATTERNS
+  // The NightShift runtime paths are the first 7 entries in BASELINE_PATTERNS
   const runtimePaths = BASELINE_PATTERNS.slice(0, 7);
 
   for (const pattern of runtimePaths) {
@@ -157,7 +157,7 @@ skill_discovery: {}
 auto_supervisor: {}
 ---
 
-# GSD Skill Preferences
+# NightShift Skill Preferences
 
 Project-specific guidance for skill selection and execution preferences.
 
@@ -165,7 +165,7 @@ See \`~/.gsd/agent/extensions/gsd/docs/preferences-reference.md\` for full field
 
 ## Fields
 
-- \`always_use_skills\`: Skills that must be available during all GSD operations
+- \`always_use_skills\`: Skills that must be available during all NightShift operations
 - \`prefer_skills\`: Skills to prioritize when multiple options exist
 - \`avoid_skills\`: Skills to minimize or avoid (with lower priority than prefer)
 - \`skill_rules\`: Context-specific rules (e.g., "use tool X for Y type of work")

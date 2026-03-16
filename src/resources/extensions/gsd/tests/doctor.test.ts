@@ -122,7 +122,7 @@ async function main(): Promise<void> {
     assert(roadmap.includes("- [x] **S01:"), "marks slice checkbox done");
 
     const state = readFileSync(join(gsd, "STATE.md"), "utf-8");
-    assert(state.includes("# GSD State"), "writes state file");
+    assert(state.includes("# NightShift State"), "writes state file");
   }
 
   rmSync(tmpBase, { recursive: true, force: true });

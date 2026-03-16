@@ -1,6 +1,6 @@
-# GSD Workflow — Manual Bootstrap Protocol
+# NightShift Workflow — Manual Bootstrap Protocol
 
-> This document teaches you how to operate the GSD planning methodology manually using files on disk.
+> This document teaches you how to operate the NightShift planning methodology manually using files on disk.
 >
 > **When to read this:** At the start of any session working on GSD-managed work, or when loaded by `/gsd`.
 >
@@ -191,7 +191,7 @@ Critical wiring between artifacts:
 ### `state.md`
 
 ```markdown
-# GSD State
+# NightShift State
 
 **Active Milestone:** M001 — Title
 **Active Slice:** S02 — Slice Title
@@ -589,7 +589,7 @@ Commit types: `feat`, `fix`, `test`, `refactor`, `docs`, `chore`
 ```
 feat(M001/S01): file I/O foundation
 
-Agent can parse, format, load, and save all GSD file types with round-trip fidelity.
+Agent can parse, format, load, and save all NightShift file types with round-trip fidelity.
 
 Tasks completed:
 - T01: core types and interfaces

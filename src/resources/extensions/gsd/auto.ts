@@ -753,7 +753,7 @@ async function showStepWizard(
   const nextDesc = describeNextUnit(state);
 
   const choice = await showNextAction(cmdCtx, {
-    title: `GSD — ${justFinished} complete`,
+    title: `NightShift — ${justFinished} complete`,
     summary: [
       `${mid}: ${state.activeMilestone?.title ?? mid}`,
       ...(state.activeSlice ? [`${state.activeSlice.id}: ${state.activeSlice.title}`] : []),
@@ -944,7 +944,7 @@ function updateProgressWidget(
           : theme.fg("dim", GLYPH.statusPending);
         const elapsed = formatAutoElapsed();
         const modeTag = stepMode ? "NEXT" : "AUTO";
-        const headerLeft = `${pad}${dot} ${theme.fg("accent", theme.bold("GSD"))}  ${theme.fg("success", modeTag)}`;
+        const headerLeft = `${pad}${dot} ${theme.fg("accent", theme.bold("NightShift"))}  ${theme.fg("success", modeTag)}`;
         const headerRight = elapsed ? theme.fg("dim", elapsed) : "";
         lines.push(rightAlign(headerLeft, headerRight, width));
 

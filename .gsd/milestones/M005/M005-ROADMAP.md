@@ -51,7 +51,7 @@ This milestone is complete only when all are true:
 
 ## Slices
 
-- [ ] **S01: NightShift Naming Cleanup** `risk:low` `depends:[]`
+- [x] **S01: NightShift Naming Cleanup** `risk:low` `depends:[]`
   > After this: All prompts, CLI output, error messages, README, and examples say NightShift. Grepping for "GSD" or "labrat" in user-facing surfaces returns zero hits.
 
 - [ ] **S02: Karpathy Auto-Research Analysis** `risk:medium` `depends:[]`

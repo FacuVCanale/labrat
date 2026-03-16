@@ -1,21 +1,21 @@
 <div align="center">
 
-# GSD 2
+# NightShift
 
 **The evolution of [Get Shit Done](https://github.com/gsd-build/get-shit-done) — now a real coding agent.**
 
-[![npm version](https://img.shields.io/npm/v/labrat?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/labrat)
-[![npm downloads](https://img.shields.io/npm/dm/labrat?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/labrat)
+[![npm version](https://img.shields.io/npm/v/nightshift?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/nightshift)
+[![npm downloads](https://img.shields.io/npm/dm/nightshift?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/nightshift)
 [![GitHub stars](https://img.shields.io/github/stars/gsd-build/GSD-2?style=for-the-badge&logo=github&color=181717)](https://github.com/gsd-build/GSD-2)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
 The original GSD went viral as a prompt framework for Claude Code. It worked, but it was fighting the tool — injecting prompts through slash commands, hoping the LLM would follow instructions, with no actual control over context windows, sessions, or execution.
 
-This version is different. GSD is now a standalone CLI built on the [Pi SDK](https://github.com/badlogic/pi-mono), which gives it direct TypeScript access to the agent harness itself. That means GSD can actually *do* what v1 could only *ask* the LLM to do: clear context between tasks, inject exactly the right files at dispatch time, manage git branches, track cost and tokens, detect stuck loops, recover from crashes, and auto-advance through an entire milestone without human intervention.
+This version is different. NightShift is now a standalone CLI built on the [Pi SDK](https://github.com/badlogic/pi-mono), which gives it direct TypeScript access to the agent harness itself. That means NightShift can actually *do* what v1 could only *ask* the LLM to do: clear context between tasks, inject exactly the right files at dispatch time, manage git branches, track cost and tokens, detect stuck loops, recover from crashes, and auto-advance through an entire milestone without human intervention.
 
 One command. Walk away. Come back to a built project with clean git history.
 
-<pre><code>npm install -g labrat</code></pre>
+<pre><code>npm install -g nightshift</code></pre>
 
 </div>
 
@@ -30,7 +30,7 @@ The original GSD was a collection of markdown prompts installed into `~/.claude/
 - **No crash recovery.** If the session died mid-task, you started over.
 - **No observability.** No cost tracking, no progress dashboard, no stuck detection.
 
-GSD v2 solves all of these because it's not a prompt framework anymore — it's a TypeScript application that *controls* the agent session.
+NightShift solves all of these because it's not a prompt framework anymore — it's a TypeScript application that *controls* the agent session.
 
 | | v1 (Prompt Framework) | v2 (Agent Application) |
 |---|---|---|
@@ -50,7 +50,7 @@ GSD v2 solves all of these because it's not a prompt framework anymore — it's 
 
 > **Note:** Migration works best with a `ROADMAP.md` file for milestone structure. Without one, milestones are inferred from the `phases/` directory.
 
-If you have projects with `.planning` directories from the original Get Shit Done, you can migrate them to GSD-2's `.gsd` format:
+If you have projects with `.planning` directories from the original Get Shit Done, you can migrate them to NightShift's `.gsd` format:
 
 ```bash
 # From within the project directory
@@ -74,7 +74,7 @@ Supports format variations including milestone-sectioned roadmaps with `<details
 
 ## How It Works
 
-GSD structures work into a hierarchy:
+NightShift structures work into a hierarchy:
 
 ```
 Milestone  →  a shippable version (4-10 slices)
@@ -96,7 +96,7 @@ Research → Plan → Execute (per task) → Complete → Reassess Roadmap → N
 
 ### `/gsd auto` — The Main Event
 
-This is what makes GSD different. Run it, walk away, come back to built software.
+This is what makes NightShift different. Run it, walk away, come back to built software.
 
 ```
 /gsd auto
@@ -144,7 +144,7 @@ Step mode is the on-ramp. Auto mode is the highway.
 ### Install
 
 ```bash
-npm install -g labrat
+npm install -g nightshift
 ```
 
 ### Log in to a provider
@@ -158,7 +158,7 @@ gsd
 
 Select from 20+ providers — Anthropic, OpenAI, Google, OpenRouter, GitHub Copilot, and more. If you have a Claude Max or Copilot subscription, the OAuth flow handles everything. Otherwise, paste your API key when prompted.
 
-GSD auto-selects a default model after login. To switch models later:
+NightShift auto-selects a default model after login. To switch models later:
 
 ```bash
 /model
@@ -172,11 +172,11 @@ Open a terminal in your project and run:
 gsd
 ```
 
-GSD opens an interactive agent session. From there, you have two ways to work:
+NightShift opens an interactive agent session. From there, you have two ways to work:
 
-**`/gsd` — step mode.** Type `/gsd` and GSD executes one unit of work at a time, pausing between each with a wizard showing what completed and what's next. Same state machine as auto mode, but you stay in the loop. No project yet? It starts the discussion flow. Roadmap exists? It plans or executes the next step.
+**`/gsd` — step mode.** Type `/gsd` and NightShift executes one unit of work at a time, pausing between each with a wizard showing what completed and what's next. Same state machine as auto mode, but you stay in the loop. No project yet? It starts the discussion flow. Roadmap exists? It plans or executes the next step.
 
-**`/gsd auto` — autonomous mode.** Type `/gsd auto` and walk away. GSD researches, plans, executes, verifies, commits, and advances through every slice until the milestone is complete. Fresh context window per task. No babysitting.
+**`/gsd auto` — autonomous mode.** Type `/gsd auto` and walk away. NightShift researches, plans, executes, verifies, commits, and advances through every slice until the milestone is complete. Fresh context window per task. No babysitting.
 
 ### Two terminals, one project
 
@@ -200,7 +200,7 @@ Both terminals read and write the same `.gsd/` files on disk. Your decisions in 
 
 ### First launch
 
-On first run, GSD launches a branded setup wizard that walks you through LLM provider selection (OAuth or API key), then optional tool API keys (Brave Search, Context7, Jina, Slack, Discord). Every step is skippable — press Enter to skip any. If you have an existing Pi installation, your provider credentials (LLM and tool keys) are imported automatically. Run `gsd config` anytime to re-run the wizard.
+On first run, NightShift launches a branded setup wizard that walks you through LLM provider selection (OAuth or API key), then optional tool API keys (Brave Search, Context7, Jina, Slack, Discord). Every step is skippable — press Enter to skip any. If you have an existing Pi installation, your provider credentials (LLM and tool keys) are imported automatically. Run `gsd config` anytime to re-run the wizard.
 
 ### Commands
 
@@ -219,7 +219,7 @@ On first run, GSD launches a branded setup wizard that walks you through LLM pro
 | `/worktree` (`/wt`) | Git worktree lifecycle — create, switch, merge, remove |
 | `/voice` | Toggle real-time speech-to-text (macOS only) |
 | `/exit` | Graceful shutdown — saves session state before exiting |
-| `/kill` | Kill GSD process immediately |
+| `/kill` | Kill NightShift process immediately |
 | `/clear` | Start a new session (alias for `/new`) |
 | `Ctrl+Alt+G` | Toggle dashboard overlay |
 | `Ctrl+Alt+V` | Toggle voice transcription |
@@ -229,7 +229,7 @@ On first run, GSD launches a branded setup wizard that walks you through LLM pro
 
 ---
 
-## What GSD Manages For You
+## What NightShift Manages For You
 
 ### Context Engineering
 
@@ -293,7 +293,7 @@ The verification ladder: static checks → command execution → behavioral test
 
 ### Preferences
 
-GSD preferences live in `~/.gsd/preferences.md` (global) or `.gsd/preferences.md` (project). Manage with `/gsd prefs`.
+NightShift preferences live in `~/.gsd/preferences.md` (global) or `.gsd/preferences.md` (project). Manage with `/gsd prefs`.
 
 ```yaml
 ---
@@ -321,7 +321,7 @@ budget_ceiling: 50.00
 | Setting | What it controls |
 |---------|-----------------|
 | `models.*` | Per-phase model selection — string for a single model, or `{model, fallbacks}` for automatic failover |
-| `skill_discovery` | `auto` / `suggest` / `off` — how GSD finds and applies skills |
+| `skill_discovery` | `auto` / `suggest` / `off` — how NightShift finds and applies skills |
 | `auto_supervisor.*` | Timeout thresholds for auto mode supervision |
 | `budget_ceiling` | USD ceiling — auto mode pauses when reached |
 | `uat_dispatch` | Enable automatic UAT runs after slice completion |
@@ -330,11 +330,11 @@ budget_ceiling: 50.00
 
 ### Bundled Tools
 
-GSD ships with 14 extensions, all loaded automatically:
+NightShift ships with 14 extensions, all loaded automatically:
 
 | Extension | What it provides |
 |-----------|-----------------|
-| **GSD** | Core workflow engine, auto mode, commands, dashboard |
+| **NightShift** | Core workflow engine, auto mode, commands, dashboard |
 | **Browser Tools** | Playwright-based browser with form intelligence, intent-ranked element finding, and semantic actions |
 | **Search the Web** | Brave Search, Tavily, or Jina page extraction |
 | **Google Search** | Gemini-powered web search with AI-synthesized answers |
@@ -363,7 +363,7 @@ Three specialized subagents for delegated work:
 
 ## Architecture
 
-GSD is a TypeScript application that embeds the Pi coding agent SDK.
+NightShift is a TypeScript application that embeds the Pi coding agent SDK.
 
 ```
 gsd (CLI binary)
@@ -407,7 +407,7 @@ Optional:
 
 ## Use Any Model
 
-GSD isn't locked to one provider. It runs on the [Pi SDK](https://github.com/badlogic/pi-mono), which supports **20+ model providers** out of the box. Use different models for different phases — Opus for planning, Sonnet for execution, a fast model for research.
+NightShift isn't locked to one provider. It runs on the [Pi SDK](https://github.com/badlogic/pi-mono), which supports **20+ model providers** out of the box. Use different models for different phases — Opus for planning, Sonnet for execution, a fast model for research.
 
 ### Built-in Providers
 
@@ -417,11 +417,11 @@ Anthropic, OpenAI, Google (Gemini), OpenRouter, GitHub Copilot, Amazon Bedrock, 
 
 If you have a **Claude Max**, **Codex**, or **GitHub Copilot** subscription, you can use those directly — Pi handles the OAuth flow. No API key needed.
 
-> **Note:** Using OAuth tokens from subscription plans (e.g. Claude Max) outside their native applications may not be explicitly permitted by the provider's Terms of Service. GSD supports API key authentication for all providers as an alternative. Use at your own discretion.
+> **Note:** Using OAuth tokens from subscription plans (e.g. Claude Max) outside their native applications may not be explicitly permitted by the provider's Terms of Service. NightShift supports API key authentication for all providers as an alternative. Use at your own discretion.
 
 ### OpenRouter
 
-[OpenRouter](https://openrouter.ai) gives you access to hundreds of models through a single API key. Use it to run GSD with Llama, DeepSeek, Qwen, or anything else OpenRouter supports.
+[OpenRouter](https://openrouter.ai) gives you access to hundreds of models through a single API key. Use it to run NightShift with Llama, DeepSeek, Qwen, or anything else OpenRouter supports.
 
 ### Per-Phase Model Selection
 
@@ -438,7 +438,7 @@ models:
   completion: claude-sonnet-4-6
 ```
 
-Use expensive models where quality matters (planning, complex execution) and cheaper/faster models where speed matters (research, simple completions). Each phase accepts a simple model string or an object with `model` and `fallbacks` — if the primary model fails (provider outage, rate limit, credit exhaustion), GSD automatically tries the next fallback. GSD tracks cost per-model so you can see exactly where your budget goes.
+Use expensive models where quality matters (planning, complex execution) and cheaper/faster models where speed matters (research, simple completions). Each phase accepts a simple model string or an object with `model` and `fallbacks` — if the primary model fails (provider outage, rate limit, credit exhaustion), NightShift automatically tries the next fallback. NightShift tracks cost per-model so you can see exactly where your budget goes.
 
 ---
 
@@ -460,6 +460,6 @@ Use expensive models where quality matters (planning, complex execution) and che
 
 **The original GSD showed what was possible. This version delivers it.**
 
-**`npm install -g labrat && gsd`**
+**`npm install -g nightshift && gsd`**
 
 </div>

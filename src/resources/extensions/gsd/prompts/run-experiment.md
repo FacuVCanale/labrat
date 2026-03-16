@@ -1,4 +1,4 @@
-You are executing GSD auto-mode.
+You are executing NightShift auto-mode.
 
 ## UNIT: Run Experiment {{experimentNumber}} — Slice {{sliceId}}, Milestone {{milestoneId}}
 

@@ -117,7 +117,7 @@ function dispatchWorkflow(pi: ExtensionAPI, note: string, customType = "gsd-run"
   pi.sendMessage(
     {
       customType,
-      content: `Read the following GSD workflow protocol and execute exactly.\n\n${workflow}\n\n## Your Task\n\n${note}`,
+      content: `Read the following NightShift workflow protocol and execute exactly.\n\n${workflow}\n\n## Your Task\n\n${note}`,
       display: false,
     },
     { triggerTurn: true },
@@ -191,7 +191,7 @@ export async function showQueue(
   // ── Ensure .gsd/ exists ─────────────────────────────────────────────
   const gsd = gsdRoot(basePath);
   if (!existsSync(gsd)) {
-    ctx.ui.notify("No GSD project found. Run /gsd to start one first.", "warning");
+    ctx.ui.notify("No NightShift project found. Run /gsd to start one first.", "warning");
     return;
   }
 
@@ -220,7 +220,7 @@ export async function showQueue(
   const completeCount = state.registry.filter(m => m.status === "complete").length;
 
   const preamble = [
-    `Queuing new work onto an existing GSD project.`,
+    `Queuing new work onto an existing NightShift project.`,
     activePart,
     `${completeCount} milestone(s) complete, ${pendingCount} pending.`,
     `Next available milestone ID: ${nextId}.`,
@@ -407,7 +407,7 @@ export async function showPlan(
 ): Promise<void> {
   // Guard: no .gsd/ project
   if (!existsSync(join(basePath, ".gsd"))) {
-    ctx.ui.notify("No GSD project found. Run /gsd to start one first.", "warning");
+    ctx.ui.notify("No NightShift project found. Run /gsd to start one first.", "warning");
     return;
   }
 
@@ -462,7 +462,7 @@ export async function showPlan(
     }));
 
     const choice = await showNextAction(ctx as any, {
-      title: "GSD — Plan research agenda",
+      title: "NightShift — Plan research agenda",
       summary: [
         `${mid}: ${state.activeMilestone.title}`,
         "Pick a campaign to plan an agenda for.",
@@ -588,7 +588,7 @@ export async function showSteering(
 ): Promise<void> {
   // Guard: no .gsd/ project
   if (!existsSync(join(basePath, ".gsd"))) {
-    ctx.ui.notify("No GSD project found. Run /gsd to start one first.", "warning");
+    ctx.ui.notify("No NightShift project found. Run /gsd to start one first.", "warning");
     return;
   }
 
@@ -643,7 +643,7 @@ export async function showSteering(
     }));
 
     const choice = await showNextAction(ctx as any, {
-      title: "GSD — Steer campaign",
+      title: "NightShift — Steer campaign",
       summary: [
         `${mid}: ${state.activeMilestone.title}`,
         "Pick a campaign to steer.",
@@ -762,7 +762,7 @@ export async function showDiscuss(
 ): Promise<void> {
   // Guard: no .gsd/ project
   if (!existsSync(join(basePath, ".gsd"))) {
-    ctx.ui.notify("No GSD project found. Run /gsd to start one first.", "warning");
+    ctx.ui.notify("No NightShift project found. Run /gsd to start one first.", "warning");
     return;
   }
 
@@ -809,7 +809,7 @@ export async function showDiscuss(
     }));
 
     const choice = await showNextAction(ctx as any, {
-      title: "GSD — Discuss a slice",
+      title: "NightShift — Discuss a slice",
       summary: [
         `${mid}: ${milestoneTitle}`,
         "Pick a slice to interview. Context file will be written when done.",
@@ -844,7 +844,7 @@ export async function showSmartEntry(
 ): Promise<void> {
   const stepMode = options?.step;
 
-  // ── Ensure git repo exists — GSD needs it for branch-per-slice ──────
+  // ── Ensure git repo exists — NightShift needs it for branch-per-slice ──────
   try {
     execSync("git rev-parse --git-dir", { cwd: basePath, stdio: "pipe" });
   } catch {
@@ -879,7 +879,7 @@ export async function showSmartEntry(
   if (crashLock) {
     clearLock(basePath);
     const resume = await showNextAction(ctx as any, {
-      title: "GSD — Interrupted Session Detected",
+      title: "NightShift — Interrupted Session Detected",
       summary: [formatCrashInfo(crashLock)],
       actions: [
         { id: "resume", label: "Resume with /gsd auto", description: "Pick up where it left off", recommended: true },
@@ -917,7 +917,7 @@ export async function showSmartEntry(
       ));
     } else {
       const choice = await showNextAction(ctx as any, {
-        title: "GSD — Get Shit Done",
+        title: "NightShift — Get Shit Done",
         summary: ["No active milestone."],
         actions: [
           {
@@ -947,7 +947,7 @@ export async function showSmartEntry(
   // ── All milestones complete → New milestone ──────────────────────────
   if (state.phase === "complete") {
     const choice = await showNextAction(ctx as any, {
-      title: `GSD — ${milestoneId}: ${milestoneTitle}`,
+      title: `NightShift — ${milestoneId}: ${milestoneTitle}`,
       summary: ["All milestones complete."],
       actions: [
         {
@@ -1018,7 +1018,7 @@ export async function showSmartEntry(
       ];
 
       const choice = await showNextAction(ctx as any, {
-        title: `GSD — ${milestoneId}: ${milestoneTitle}`,
+        title: `NightShift — ${milestoneId}: ${milestoneTitle}`,
         summary: [hasContext ? "Context captured. Ready to create roadmap." : "New milestone — no roadmap yet."],
         actions,
         notYetMessage: "Run /gsd when ready.",
@@ -1072,7 +1072,7 @@ export async function showSmartEntry(
       ];
 
       const choice = await showNextAction(ctx as any, {
-        title: `GSD — ${milestoneId}: ${milestoneTitle}`,
+        title: `NightShift — ${milestoneId}: ${milestoneTitle}`,
         summary: ["Roadmap exists. Ready to execute."],
         actions,
         notYetMessage: "Run /gsd status for details.",
@@ -1130,7 +1130,7 @@ export async function showSmartEntry(
       : `${sliceId}: ${sliceTitle} — ready for planning.`;
 
     const choice = await showNextAction(ctx as any, {
-      title: `GSD — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
+      title: `NightShift — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
       summary: [summaryLine],
       actions,
       notYetMessage: "Run /gsd when ready.",
@@ -1156,7 +1156,7 @@ export async function showSmartEntry(
   // ── All tasks done → Complete slice ──────────────────────────────────
   if (state.phase === "summarizing") {
     const choice = await showNextAction(ctx as any, {
-      title: `GSD — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
+      title: `NightShift — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
       summary: ["All tasks complete. Ready for slice summary."],
       actions: [
         {
@@ -1196,7 +1196,7 @@ export async function showSmartEntry(
       !!(sDir && await loadFile(join(sDir, "continue.md")));
 
     const choice = await showNextAction(ctx as any, {
-      title: `GSD — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
+      title: `NightShift — ${milestoneId} / ${sliceId}: ${sliceTitle}`,
       summary: [
         hasInterrupted
           ? `Resuming: ${taskId} — ${taskTitle}`

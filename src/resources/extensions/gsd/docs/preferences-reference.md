@@ -1,4 +1,4 @@
-# GSD Preferences Reference
+# NightShift Preferences Reference
 
 Full documentation for `~/.gsd/preferences.md` (global) and `.gsd/preferences.md` (project).
 
@@ -9,7 +9,7 @@ Full documentation for `~/.gsd/preferences.md` (global) and `.gsd/preferences.md
 - Keep this skill-first.
 - Prefer explicit skill names or absolute paths.
 - Use absolute paths for personal/local skills when you want zero ambiguity.
-- These preferences guide which skills GSD should load and follow; they do not override higher-priority instructions in the current conversation.
+- These preferences guide which skills NightShift should load and follow; they do not override higher-priority instructions in the current conversation.
 
 ---
 
@@ -17,7 +17,7 @@ Full documentation for `~/.gsd/preferences.md` (global) and `.gsd/preferences.md
 
 ### Empty Arrays vs Omitted Fields
 
-**Empty arrays (`[]`) are equivalent to omitting the field entirely.** During validation, GSD deletes empty arrays from the preferences object (see `validatePreferences()` in `preferences.ts`):
+**Empty arrays (`[]`) are equivalent to omitting the field entirely.** During validation, NightShift deletes empty arrays from the preferences object (see `validatePreferences()` in `preferences.ts`):
 
 ```typescript
 for (const key of ["always_use_skills", "prefer_skills", "avoid_skills", "custom_instructions"] as const) {
@@ -61,7 +61,7 @@ These are **separate concerns**:
 
 | Field | What it controls | Code reference |
 |-------|-----------------|----------------|
-| `skill_discovery` | **Whether** GSD looks for relevant skills during research | `resolveSkillDiscoveryMode()` in `preferences.ts` |
+| `skill_discovery` | **Whether** NightShift looks for relevant skills during research | `resolveSkillDiscoveryMode()` in `preferences.ts` |
 | `always_use_skills`, `prefer_skills`, `avoid_skills` | **Which** skills to use when they're found relevant | `renderPreferencesForSystemPrompt()` in `preferences.ts` |
 
 Setting `prefer_skills: []` does **not** disable skill discovery — it just means you have no preference overrides. Use `skill_discovery: off` to disable discovery entirely.
@@ -72,11 +72,11 @@ Setting `prefer_skills: []` does **not** disable skill discovery — it just mea
 
 - `version`: schema version. Start at `1`.
 
-- `always_use_skills`: skills GSD should use whenever they are relevant.
+- `always_use_skills`: skills NightShift should use whenever they are relevant.
 
-- `prefer_skills`: soft defaults GSD should prefer when relevant.
+- `prefer_skills`: soft defaults NightShift should prefer when relevant.
 
-- `avoid_skills`: skills GSD should avoid unless clearly needed.
+- `avoid_skills`: skills NightShift should avoid unless clearly needed.
 
 - `skill_rules`: situational rules with a human-readable `when` trigger and one or more of `use`, `prefer`, or `avoid`.
 
@@ -87,7 +87,7 @@ Setting `prefer_skills: []` does **not** disable skill discovery — it just mea
   - Object with fallbacks: `{ model: "claude-opus-4-6", fallbacks: ["glm-5", "minimax-m2.5"] }` — tries fallbacks in order if primary fails
   - Omit a key to use whatever model is currently active. Fallbacks are tried when model switching fails (provider unavailable, rate limited, etc.).
 
-- `skill_discovery`: controls how GSD discovers and applies skills during auto-mode. Valid values:
+- `skill_discovery`: controls how NightShift discovers and applies skills during auto-mode. Valid values:
   - `auto` — skills are found and applied automatically without prompting.
   - `suggest` — (default) skills are identified during research but not installed automatically.
   - `off` — skill discovery is disabled entirely.
@@ -98,7 +98,7 @@ Setting `prefer_skills: []` does **not** disable skill discovery — it just mea
   - `idle_timeout_minutes`: minutes of inactivity before the supervisor intervenes (default: 10).
   - `hard_timeout_minutes`: minutes before the supervisor forces termination (default: 30).
 
-- `git`: configures GSD's git behavior. All fields are optional — omit any to use defaults. Keys:
+- `git`: configures NightShift's git behavior. All fields are optional — omit any to use defaults. Keys:
   - `auto_push`: boolean — automatically push commits to the remote after committing. Default: `false`.
   - `push_branches`: boolean — push newly created slice branches to the remote. Default: `false`.
   - `remote`: string — git remote name to push to. Default: `"origin"`.
@@ -177,7 +177,7 @@ models:
 ---
 ```
 
-When a model fails to switch (provider unavailable, rate limited, credits exhausted), GSD automatically tries the next model in the `fallbacks` list. This ensures auto-mode continues even when your preferred provider hits limits.
+When a model fails to switch (provider unavailable, rate limited, credits exhausted), NightShift automatically tries the next model in the `fallbacks` list. This ensures auto-mode continues even when your preferred provider hits limits.
 
 **Cost-optimized example** — use cheap models with expensive ones as fallback for critical phases:
 

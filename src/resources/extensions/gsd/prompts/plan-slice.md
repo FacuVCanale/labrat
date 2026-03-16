@@ -1,4 +1,4 @@
-You are executing GSD auto-mode.
+You are executing NightShift auto-mode.
 
 ## UNIT: Plan Slice {{sliceId}} ("{{sliceTitle}}") — Milestone {{milestoneId}}
 
@@ -21,7 +21,7 @@ Then:
 1. Read the templates:
    - `~/.gsd/agent/extensions/gsd/templates/plan.md`
    - `~/.gsd/agent/extensions/gsd/templates/task-plan.md`
-2. If a `GSD Skill Preferences` block is present in system context, use it to decide which skills to load and follow during planning, without overriding required plan formatting
+2. If a `NightShift Skill Preferences` block is present in system context, use it to decide which skills to load and follow during planning, without overriding required plan formatting
 3. Define slice-level verification — the objective stopping condition for this slice:
    - For non-trivial slices: plan actual test files with real assertions. Name the files.
    - For simple slices: executable commands or script assertions are fine.

@@ -25,7 +25,7 @@ Don't go deep — just enough that your next question reflects what's actually t
 
 **Then use ask_user_questions** to dig into gray areas — architecture choices, scope boundaries, tech preferences, what's in vs out. 1-3 questions per round.
 
-If a `GSD Skill Preferences` block is present in system context, use it to decide which skills to load and follow during discuss/planning work, but do not let it override the required discuss flow or artifact requirements.
+If a `NightShift Skill Preferences` block is present in system context, use it to decide which skills to load and follow during discuss/planning work, but do not let it override the required discuss flow or artifact requirements.
 
 **Self-regulate:** After about 10-15 questions total (3-5 rounds), or when you feel you have a solid understanding, include a question like:
 "I think I have a good picture. Ready to queue this, or are there more things to discuss?"

@@ -12,9 +12,9 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 ## Current State
 
-**M001–M004 complete.** 30 requirements validated across 18 slices. Core research engine, structured research intelligence, upstream sync, and remote compute backends all operational.
+**M001–M004 complete.** 31 requirements validated across 19 slices. Core research engine, structured research intelligence, upstream sync, and remote compute backends all operational.
 
-**M005 (Hypothesis-Driven Research Flow) in progress.** Replacing the single-prompt-per-experiment approach with a hypothesis-driven flow that leverages GSD's existing 4-agent infrastructure (research → plan → execute → verify). Each hypothesis gets genuine deep research via web search and library docs. Each experiment within a hypothesis gets plan → execute → verify with accumulated results feeding forward. User-facing naming cleaned up from GSD/labrat to NightShift.
+**M005 (Hypothesis-Driven Research Flow) in progress.** S01 (NightShift Naming Cleanup) complete — all user-facing surfaces say NightShift, R042 validated. Next: S02 (Karpathy Auto-Research Analysis) and S03 (/nightshift Interview & Scaffold) now unblocked.
 
 ## Architecture / Key Patterns
 

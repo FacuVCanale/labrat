@@ -7,7 +7,7 @@ export function registerExitCommand(
   deps: { stopAuto?: StopAutoFn } = {},
 ): void {
   pi.registerCommand("exit", {
-    description: "Exit GSD gracefully",
+    description: "Exit NightShift gracefully",
     handler: async (_args: string, ctx: ExtensionCommandContext) => {
       // Stop auto-mode first so locks and activity state are cleaned up before shutdown.
       const stopAuto = deps.stopAuto ?? (await import("./auto.js")).stopAuto;

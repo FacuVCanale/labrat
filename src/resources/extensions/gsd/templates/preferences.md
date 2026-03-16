@@ -17,6 +17,6 @@ git:
   commit_type:
 ---
 
-# GSD Skill Preferences
+# NightShift Skill Preferences
 
 See `~/.gsd/agent/extensions/gsd/docs/preferences-reference.md` for full field documentation and examples.

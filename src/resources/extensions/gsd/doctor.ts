@@ -93,7 +93,7 @@ function validatePreferenceShape(preferences: GSDPreferences): string[] {
 
 function buildStateMarkdown(state: Awaited<ReturnType<typeof deriveState>>): string {
   const lines: string[] = [];
-  lines.push("# GSD State", "");
+  lines.push("# NightShift State", "");
 
   const activeMilestone = state.activeMilestone
     ? `${state.activeMilestone.id} — ${state.activeMilestone.title}`
@@ -242,7 +242,7 @@ async function ensureSliceUatStub(basePath: string, milestoneId: string, sliceId
     "## Edge Cases",
     "### Missing completion artifacts",
     "1. Confirm the summary, roadmap checkbox, and state file are coherent.",
-    "2. **Expected:** GSD doctor reports no remaining completion drift for this slice.",
+    "2. **Expected:** NightShift doctor reports no remaining completion drift for this slice.",
     "",
     "## Failure Signals",
     "- Placeholder content still present when treating the slice as done",
@@ -383,7 +383,7 @@ export function formatDoctorReport(
   const summary = summarizeDoctorIssues(scopedIssues);
   const maxIssues = options?.maxIssues ?? 12;
   const lines: string[] = [];
-  lines.push(options?.title ?? (summary.errors > 0 ? "GSD doctor found blocking issues." : "GSD doctor report."));
+  lines.push(options?.title ?? (summary.errors > 0 ? "NightShift doctor found blocking issues." : "NightShift doctor report."));
   lines.push(`Scope: ${options?.scope ?? "all milestones"}`);
   lines.push(`Issues: ${summary.total} total · ${summary.errors} error(s) · ${summary.warnings} warning(s) · ${summary.fixable} fixable`);
 
@@ -455,7 +455,7 @@ export async function runGSDDoctor(basePath: string, options?: { fix?: boolean; 
         code: "invalid_preferences",
         scope: "project",
         unitId: "project",
-        message: `GSD preferences invalid: ${issue}`,
+        message: `NightShift preferences invalid: ${issue}`,
         file: prefs.path,
         fixable: false,
       });

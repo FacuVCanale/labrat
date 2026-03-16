@@ -94,7 +94,7 @@ test('new .gitignore contains the auto-generated header comment', () => {
 	try {
 		ensureGitignore(dir)
 		const content = readFileSync(join(dir, '.gitignore'), 'utf-8')
-		assert.ok(content.includes('GSD baseline (auto-generated)'))
+		assert.ok(content.includes('NightShift baseline (auto-generated)'))
 	} finally {
 		cleanup()
 	}
@@ -322,14 +322,14 @@ test('ensurePreferences does not overwrite existing content', () => {
 	}
 })
 
-test('ensurePreferences file contains GSD Skill Preferences heading', () => {
+test('ensurePreferences file contains NightShift Skill Preferences heading', () => {
 	const { dir, cleanup } = makeTmpDir()
 	try {
 		mkdirSync(join(dir, '.gsd'), { recursive: true })
 		ensurePreferences(dir)
 		const content = readFileSync(join(dir, '.gsd', 'PREFERENCES.md'), 'utf-8')
 
-		assert.ok(content.includes('# GSD Skill Preferences'))
+		assert.ok(content.includes('# NightShift Skill Preferences'))
 	} finally {
 		cleanup()
 	}
