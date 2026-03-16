@@ -14,7 +14,7 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 **M001–M004 complete.** 31 requirements validated across 19 slices. Core research engine, structured research intelligence, upstream sync, and remote compute backends all operational.
 
-**M005 (Hypothesis-Driven Research Flow) in progress.** S01 (NightShift Naming Cleanup) complete — all user-facing surfaces say NightShift, R042 validated. Next: S02 (Karpathy Auto-Research Analysis) and S03 (/nightshift Interview & Scaffold) now unblocked.
+**M005 (Hypothesis-Driven Research Flow) in progress.** S01 (NightShift Naming Cleanup) and S02 (Karpathy Auto-Research Analysis) complete — R042 and R043 validated. Next: S03 (/nightshift Interview & Scaffold) now unblocked, then S04 (Hypothesis-Native Prompts) which depends on both S02 and S03.
 
 ## Architecture / Key Patterns
 

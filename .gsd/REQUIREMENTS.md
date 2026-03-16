@@ -27,13 +27,13 @@ Guidelines:
 
 ### R043 — Karpathy Auto-Research Analysis
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: Structured analysis of Karpathy's auto-research approach: prompts, flow, what works, what to adopt/avoid. Written to a research artifact that feeds into prompt design.
 - Why it matters: The prompt design for hypothesis-driven research should be grounded in proven patterns, not invented from scratch.
 - Source: user
 - Primary owning slice: M005/S02
 - Supporting slices: M005/S04
-- Validation: unmapped
+- Validation: M005/S02 — S02-RESEARCH.md with 19 sections: architecture analysis of 3-file design (prepare.py/train.py/program.md), experiment loop mechanics, 6 key design principles, 7-row adopt table (simplicity criterion, NEVER STOP, output suppression, git state, prompt-as-skill, fixed metric, think harder), 8-row avoid table (no research, flat loop, single agent, raw logging, no feedback, prompt-only safety, no crash recovery, untracked results), prompt fragments for all 4 agent phases (research-hypothesis.md, plan-experiment.md, execute-experiment.md, verify-experiment.md), 6 cited primary sources including Karpathy's GitHub, program.md, train.py, prepare.py.
 - Notes: Research artifact consumed by S04 (prompt design slice).
 
 ### R044 — /nightshift Interview & Scaffold
@@ -724,7 +724,7 @@ Guidelines:
 | R040 | anti-feature | out-of-scope | none | none | n/a |
 | R041 | anti-feature | out-of-scope | none | none | n/a |
 | R042 | launchability | validated | M005/S01 | none | M005/S01 |
-| R043 | core-capability | active | M005/S02 | M005/S04 | unmapped |
+| R043 | core-capability | validated | M005/S02 | M005/S04 | M005/S02 |
 | R044 | core-capability | active | M005/S03 | none | unmapped |
 | R045 | core-capability | active | M005/S04 | M005/S02 | unmapped |
 | R046 | core-capability | active | M005/S04 | none | unmapped |
@@ -734,7 +734,7 @@ Guidelines:
 
 ## Coverage Summary
 
-- Active requirements: 7
-- Mapped to slices: 7
-- Validated: 31
+- Active requirements: 6
+- Mapped to slices: 6
+- Validated: 32
 - Unmapped active requirements: 0

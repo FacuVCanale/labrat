@@ -54,7 +54,7 @@ This milestone is complete only when all are true:
 - [x] **S01: NightShift Naming Cleanup** `risk:low` `depends:[]`
   > After this: All prompts, CLI output, error messages, README, and examples say NightShift. Grepping for "GSD" or "labrat" in user-facing surfaces returns zero hits.
 
-- [ ] **S02: Karpathy Auto-Research Analysis** `risk:medium` `depends:[]`
+- [x] **S02: Karpathy Auto-Research Analysis** `risk:medium` `depends:[]`
   > After this: Structured research artifact with Karpathy's auto-research prompts, flow patterns, what works, what to adopt/avoid. Feeds directly into S04 prompt design.
 
 - [ ] **S03: /nightshift Interview & Scaffold** `risk:medium` `depends:[S01]`
