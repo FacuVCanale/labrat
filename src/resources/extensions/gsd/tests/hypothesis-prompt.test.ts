@@ -70,6 +70,7 @@ const planExperimentVars: Record<string, string> = {
   experimentHistory: 'exp-001: ✓ kept — val_bpb=1.4200',
   researchFindings: '## Key Findings\nLearning rate scheduling improves convergence.',
   priorAnalysis: '_No prior experiment analysis available._',
+  sliceDir: '.gsd/milestones/M001/slices/S03',
 };
 
 const executeExperimentVars: Record<string, string> = {

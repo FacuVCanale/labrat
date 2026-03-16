@@ -63,7 +63,7 @@ This milestone is complete only when all are true:
 - [x] **S04: Hypothesis-Native Prompts** `risk:high` `depends:[S02,S03]`
   > After this: Each agent phase (research, plan, execute, verify) has research-tuned prompts. The research prompt instructs genuine deep search. The verify prompt produces structured analysis. Prompts are grounded in Karpathy analysis from S02.
 
-- [ ] **S05: Learning Loop & State Flow** `risk:medium` `depends:[S04]`
+- [x] **S05: Learning Loop & State Flow** `risk:medium` `depends:[S04]`
   > After this: Verifier analysis feeds into next experiment's planner. State machine handles per-experiment plan→execute→verify cycling within a hypothesis. Crash recovery works across the new flow.
 
 - [ ] **S06: End-to-End Integration** `risk:low` `depends:[S01,S02,S03,S04,S05]`

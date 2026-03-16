@@ -74,6 +74,10 @@ import { GitServiceImpl } from "./git-service.ts";
 import { getPriorSliceCompletionBlocker } from "./dispatch-guard.ts";
 import { runExperimentPostProcess, readAllExperiments, compressExperimentHistory, readBestMetrics } from "./eval-runner.js";
 import { checkAndAdvancePhase, getPhasePromptOverrides, stampPhaseIndex } from "./agenda.js";
+import {
+  readHypothesisState, writeHypothesisState, createInitialHypothesisState,
+  advanceHypothesisPhase, formatResultsForVerify,
+} from "./hypothesis-state.js";
 import { checkSteeringDirective, getSteeringPromptOverride } from "./steering.js";
 import { createMLOpsClient, type MLOpsClient } from "./mlops-integration.js";
 import type { GitPreferences } from "./git-service.ts";
@@ -689,6 +693,127 @@ export async function handleAgentEnd(
       } catch { /* non-fatal — budget check failure should never block dispatch */ }
     }
 
+    // ── Hypothesis sub-phase post-processing ──────────────────────────────
+
+    if (currentUnit.type === "execute-hypothesis") {
+      // Execute-hypothesis: run eval, persist results, advance to verify
+      try {
+        const sliceId = currentUnit.id.split("/").slice(0, 2).join("/");
+        const sliceDir = join(basePath, ".gsd", "milestones", sliceId.split("/")[0], "slices", sliceId.split("/")[1]);
+        const commitHash = execSync("git rev-parse HEAD", { cwd: basePath }).toString().trim();
+        const experimentNumber = countExperiments(sliceDir) + 1;
+
+        const result = runExperimentPostProcess({ sliceDir, basePath, experimentNumber, commitHash });
+
+        // Phase attribution
+        try { const cfg = parseCampaignConfig(sliceDir); if (cfg?.agenda) stampPhaseIndex(sliceDir, result); } catch { /* non-fatal */ }
+
+        // Format results and persist to EXPERIMENT-NNN-RESULTS.md for verify dispatch
+        const formattedResults = formatResultsForVerify(result);
+        const hypState = readHypothesisState(sliceDir);
+        const expNum = hypState?.experimentNumber ?? experimentNumber;
+        writeFileSync(join(sliceDir, `EXPERIMENT-${expNum}-RESULTS.md`), formattedResults + '\n', 'utf-8');
+
+        // Advance hypothesis state to verify
+        advanceHypothesisPhase(sliceDir, 'execute');
+
+        const verb = result.decision.decision === "keep" ? "✓ Kept" : "✗ Discarded";
+        const metricsSummary = Object.entries(result.metrics)
+          .map(([k, v]) => `${k}=${typeof v === "number" ? v.toFixed(4) : v}`)
+          .join(", ");
+        ctx.ui.notify(
+          `Experiment ${result.id}: ${verb} — ${result.decision.reason}${metricsSummary ? ` (${metricsSummary})` : ""}`,
+          result.decision.decision === "keep" ? "info" : "warn",
+        );
+
+        // Log experiment result to MLOps platform (non-fatal)
+        try {
+          if (mlopsClient) {
+            await mlopsClient.logExperiment(result, experimentNumber);
+          }
+        } catch { /* non-fatal */ }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ctx.ui.notify(`Hypothesis experiment eval failed (non-fatal): ${msg}`, "error");
+      }
+
+      // Update lastProgressAt
+      try {
+        const runtime = readUnitRuntimeRecord(basePath, currentUnit.type, currentUnit.id);
+        writeUnitRuntimeRecord(basePath, currentUnit.type, currentUnit.id, currentUnit.startedAt, {
+          lastProgressAt: Date.now(),
+          progressCount: (runtime?.progressCount ?? 0) + 1,
+          lastProgressKind: "eval-complete",
+        });
+      } catch { /* non-fatal */ }
+
+      // Per-experiment budget guard (same as run-experiment)
+      try {
+        const researchPrefs = loadEffectiveGSDPreferences()?.preferences?.research;
+        const budgetPerExp = researchPrefs?.budget_per_experiment;
+        if (budgetPerExp !== undefined && budgetPerExp > 0) {
+          let unitCost = 0;
+          for (const entry of ctx.sessionManager.getEntries()) {
+            if (entry.type !== "message") continue;
+            const msg = (entry as any).message;
+            if (msg?.role === "assistant" && msg.usage?.cost != null) {
+              const c = msg.usage.cost;
+              unitCost += typeof c === "number" ? c : (c.total ?? 0);
+            }
+          }
+          if (unitCost > 0 && unitCost > budgetPerExp) {
+            ctx.ui.notify(
+              `Per-experiment budget exceeded: ${formatCost(unitCost)} spent vs ${formatCost(budgetPerExp)} limit. Pausing auto-mode.`,
+              "warning",
+            );
+            await pauseAuto(ctx, pi);
+            return;
+          }
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    if (currentUnit.type === "plan-hypothesis") {
+      // Plan-hypothesis: advance state to execute. Plan file written by agent per prompt instruction.
+      try {
+        const sliceId = currentUnit.id.split("/").slice(0, 2).join("/");
+        const sliceDir = join(basePath, ".gsd", "milestones", sliceId.split("/")[0], "slices", sliceId.split("/")[1]);
+        advanceHypothesisPhase(sliceDir, 'plan');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ctx.ui.notify(`Hypothesis plan advance failed (non-fatal): ${msg}`, "error");
+      }
+    }
+
+    if (currentUnit.type === "verify-hypothesis") {
+      // Verify-hypothesis: advance to next experiment or mark done.
+      // Analysis file written by agent per prompt instruction.
+      try {
+        const sliceId = currentUnit.id.split("/").slice(0, 2).join("/");
+        const sliceDir = join(basePath, ".gsd", "milestones", sliceId.split("/")[0], "slices", sliceId.split("/")[1]);
+        const config = parseCampaignConfig(sliceDir);
+        const result = advanceHypothesisPhase(sliceDir, 'verify', config?.maxExperiments);
+        if (!result) {
+          ctx.ui.notify("Hypothesis experiments complete — all experiments exhausted.", "info");
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ctx.ui.notify(`Hypothesis verify advance failed (non-fatal): ${msg}`, "error");
+      }
+    }
+
+    if (currentUnit.type === "research-hypothesis") {
+      // Research-hypothesis: advance state to plan. Research file written by agent per prompt instruction.
+      try {
+        const sliceId = currentUnit.id.split("/").slice(0, 2).join("/");
+        const sliceDir = join(basePath, ".gsd", "milestones", sliceId.split("/")[0], "slices", sliceId.split("/")[1]);
+        advanceHypothesisPhase(sliceDir, 'research');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ctx.ui.notify(`Hypothesis research advance failed (non-fatal): ${msg}`, "error");
+      }
+    }
+
     // Post-hook: fix mechanical bookkeeping the LLM may have skipped.
     // 1. Doctor handles: checkbox marking (task-level bookkeeping).
     // 2. STATE.md is always rebuilt from disk state (purely derived, no LLM needed).
@@ -843,6 +968,10 @@ function unitVerb(unitType: string): string {
     case "reassess-roadmap": return "reassessing";
     case "run-uat": return "running UAT";
     case "run-experiment": return "experimenting";
+    case "research-hypothesis": return "researching";
+    case "plan-hypothesis": return "planning";
+    case "execute-hypothesis": return "experimenting";
+    case "verify-hypothesis": return "verifying";
     default: return unitType;
   }
 }
@@ -859,6 +988,10 @@ function unitPhaseLabel(unitType: string): string {
     case "reassess-roadmap": return "REASSESS";
     case "run-uat": return "UAT";
     case "run-experiment": return "EXPERIMENT";
+    case "research-hypothesis": return "RESEARCH";
+    case "plan-hypothesis": return "PLAN";
+    case "execute-hypothesis": return "EXPERIMENT";
+    case "verify-hypothesis": return "VERIFY";
     default: return unitType.toUpperCase();
   }
 }
@@ -876,6 +1009,10 @@ function peekNext(unitType: string, state: GSDState): string {
     case "reassess-roadmap": return "advance to next slice";
     case "run-uat": return "reassess roadmap";
     case "run-experiment": return "next experiment";
+    case "research-hypothesis": return "plan experiment 1";
+    case "plan-hypothesis": return "execute experiment";
+    case "execute-hypothesis": return "verify experiment";
+    case "verify-hypothesis": return "next experiment";
     default: return "";
   }
 }
@@ -1426,24 +1563,88 @@ async function dispatchNextUnit(
     } else if (state.phase === "experimenting") {
       // Run next experiment in a campaign
       const sid = state.activeSlice!.id;
-      const expProgress = state.progress?.experiments;
-      const expNum = (expProgress?.done ?? 0) + 1;
-      dispatchedExpNum = expNum;
-      unitType = "run-experiment";
-      unitId = `${mid}/${sid}`;
-      // Phase boundary detection (R020: agenda-driven sequencing)
       const sliceDir = resolveSlicePath(basePath, mid, sid);
       const config = parseCampaignConfig(sliceDir);
-      // Steering directive check — process before natural phase boundary detection
+
+      // Steering directive check — process before dispatch
       const steer = checkSteeringDirective(sliceDir, config);
       if (steer?.stop) { await stopAuto(ctx, pi); return; }
       if (steer?.notify) ctx.ui.notify(steer.notify, "info");
-      if (config?.agenda) {
-        const msg = checkAndAdvancePhase(sliceDir, config.agenda, expNum, readAllExperiments(sliceDir));
-        if (msg) ctx.ui.notify(msg, "info");
-      }
 
-      prompt = await buildExperimentPrompt(mid, sid, basePath, expNum);
+      if (config?.hypothesisMode) {
+        // ─── Hypothesis-mode dispatch: route through sub-phase state machine ───
+        let hypState = readHypothesisState(sliceDir);
+        if (!hypState) {
+          hypState = createInitialHypothesisState();
+          writeHypothesisState(sliceDir, hypState);
+        }
+
+        const expNum = hypState.experimentNumber;
+        const padded = String(expNum).padStart(3, "0");
+
+        switch (hypState.subPhase) {
+          case "research":
+            unitType = "research-hypothesis";
+            unitId = `${mid}/${sid}/research`;
+            prompt = await buildResearchHypothesisPrompt(mid, sid, basePath);
+            break;
+          case "plan":
+            unitType = "plan-hypothesis";
+            unitId = `${mid}/${sid}/E${padded}/plan`;
+            dispatchedExpNum = expNum;
+            prompt = await buildPlanExperimentPrompt(mid, sid, basePath, expNum);
+            break;
+          case "execute": {
+            unitType = "execute-hypothesis";
+            unitId = `${mid}/${sid}/E${padded}/execute`;
+            dispatchedExpNum = expNum;
+            // Read experiment plan from disk (D088: plan agent wrote it per prompt instruction)
+            const planPath = join(sliceDir, `EXPERIMENT-${expNum}-PLAN.md`);
+            let experimentPlan = "_No experiment plan found — proceed with best judgment based on research._";
+            if (existsSync(planPath)) {
+              try { experimentPlan = readFileSync(planPath, "utf-8").trim(); } catch { /* use placeholder */ }
+            } else {
+              process.stderr.write(`[hypothesis] Missing EXPERIMENT-${expNum}-PLAN.md at execute dispatch — using placeholder\n`);
+            }
+            prompt = await buildExecuteExperimentPrompt(mid, sid, basePath, expNum, experimentPlan);
+            break;
+          }
+          case "verify": {
+            unitType = "verify-hypothesis";
+            unitId = `${mid}/${sid}/E${padded}/verify`;
+            dispatchedExpNum = expNum;
+            // Read experiment results from disk (written by execute-hypothesis handler)
+            const resultsPath = join(sliceDir, `EXPERIMENT-${expNum}-RESULTS.md`);
+            let currentResults = "_No experiment results found — the experiment may have failed._";
+            if (existsSync(resultsPath)) {
+              try { currentResults = readFileSync(resultsPath, "utf-8").trim(); } catch { /* use placeholder */ }
+            } else {
+              process.stderr.write(`[hypothesis] Missing EXPERIMENT-${expNum}-RESULTS.md at verify dispatch — using placeholder\n`);
+            }
+            prompt = await buildVerifyExperimentPrompt(mid, sid, basePath, expNum, currentResults);
+            break;
+          }
+        }
+
+        // Agenda boundary check (same as non-hypothesis path)
+        if (config?.agenda) {
+          const msg = checkAndAdvancePhase(sliceDir, config.agenda, expNum, readAllExperiments(sliceDir));
+          if (msg) ctx.ui.notify(msg, "info");
+        }
+      } else {
+        // ─── Non-hypothesis mode: existing run-experiment path (backward compat) ───
+        const expProgress = state.progress?.experiments;
+        const expNum = (expProgress?.done ?? 0) + 1;
+        dispatchedExpNum = expNum;
+        unitType = "run-experiment";
+        unitId = `${mid}/${sid}`;
+        // Phase boundary detection (R020: agenda-driven sequencing)
+        if (config?.agenda) {
+          const msg = checkAndAdvancePhase(sliceDir, config.agenda, expNum, readAllExperiments(sliceDir));
+          if (msg) ctx.ui.notify(msg, "info");
+        }
+        prompt = await buildExperimentPrompt(mid, sid, basePath, expNum);
+      }
 
     } else if (state.phase === "executing" && state.activeTask) {
       // Execute next task
@@ -2172,6 +2373,9 @@ export async function buildPlanExperimentPrompt(
   // Read optional prior EXPERIMENT-NNN-ANALYSIS.md (most recent)
   const priorAnalysis = readLatestExperimentAnalysis(sliceDir, experimentNumber);
 
+  // Relative slice dir for the template (tells agent where to write plan file)
+  const sliceDirRel = relSlicePath(basePath, mid, sid);
+
   return loadPrompt("plan-experiment", {
     experimentNumber: String(experimentNumber),
     milestoneId: mid,
@@ -2189,6 +2393,7 @@ export async function buildPlanExperimentPrompt(
     experimentHistory,
     researchFindings,
     priorAnalysis,
+    sliceDir: sliceDirRel,
   });
 }
 
@@ -3025,7 +3230,7 @@ function ensurePreconditions(
     }
   }
 
-  if (["research-slice", "plan-slice", "execute-task", "complete-slice", "replan-slice", "run-experiment"].includes(unitType) && parts.length >= 2) {
+  if (["research-slice", "plan-slice", "execute-task", "complete-slice", "replan-slice", "run-experiment", "research-hypothesis", "plan-hypothesis", "execute-hypothesis", "verify-hypothesis"].includes(unitType) && parts.length >= 2) {
     const sid = parts[1]!;
     ensureSliceBranch(base, mid, sid);
   }
@@ -3269,6 +3474,62 @@ async function recoverTimedOutUnit(
     }
   }
 
+  // execute-hypothesis timeout: same orphan revert logic as run-experiment
+  if (unitType === "execute-hypothesis") {
+    try {
+      const parts = unitId.split("/");
+      if (parts.length >= 2) {
+        const sliceDir = join(basePath, ".gsd", "milestones", parts[0], "slices", parts[1]);
+        const jsonlCount = countExperiments(sliceDir);
+        const lockData = readCrashLock(basePath);
+        const expectedExpNum = lockData?.experimentNumber ?? (jsonlCount + 1);
+
+        const experiments = readAllExperiments(sliceDir);
+        const logged = experiments.some(e => e.id === `exp-${String(expectedExpNum).padStart(3, "0")}`);
+
+        if (!logged) {
+          try {
+            const lastHash = execSync("git rev-parse HEAD", { cwd: basePath, encoding: "utf-8", timeout: 5_000 }).trim();
+            const lastMsg = execSync("git log -1 --format=%s", { cwd: basePath, encoding: "utf-8", timeout: 5_000 }).trim();
+            if (lastMsg.startsWith("experiment(")) {
+              revertExperiment(basePath, `E${String(expectedExpNum).padStart(3, "0")}`, lastHash, "timeout recovery — hypothesis experiment not logged");
+              ctx.ui.notify(
+                `Timeout recovery: reverted orphan hypothesis experiment commit ${lastHash.slice(0, 8)}.`,
+                "warning",
+              );
+            }
+          } catch { /* non-fatal */ }
+        }
+
+        writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
+          phase: "recovered",
+          recoveryAttempts: recoveryAttempts + 1,
+          lastRecoveryReason: reason,
+          lastProgressAt: Date.now(),
+        });
+
+        unitRecoveryCount.delete(recoveryKey);
+        await dispatchNextUnit(ctx, pi);
+        return "recovered";
+      }
+    } catch {
+      // Non-fatal — fall through to generic handler
+    }
+  }
+
+  // research-hypothesis / plan-hypothesis / verify-hypothesis timeout: re-dispatch
+  if (["research-hypothesis", "plan-hypothesis", "verify-hypothesis"].includes(unitType)) {
+    writeUnitRuntimeRecord(basePath, unitType, unitId, currentUnit.startedAt, {
+      phase: "recovered",
+      recoveryAttempts: recoveryAttempts + 1,
+      lastRecoveryReason: reason,
+      lastProgressAt: Date.now(),
+    });
+    unitRecoveryCount.delete(recoveryKey);
+    await dispatchNextUnit(ctx, pi);
+    return "recovered";
+  }
+
   const expected = diagnoseExpectedArtifact(unitType, unitId, basePath) ?? "required durable artifact";
 
   // Check if the artifact already exists on disk — agent may have written it
@@ -3482,6 +3743,27 @@ export function resolveExpectedArtifactPath(unitType: string, unitId: string, ba
       const dir = resolveSlicePath(base, mid, sid!);
       return dir ? join(dir, "EXPERIMENT-LOG.jsonl") : null;
     }
+    case "research-hypothesis": {
+      const dir = resolveSlicePath(base, mid, sid!);
+      return dir ? join(dir, "HYPOTHESIS-RESEARCH.md") : null;
+    }
+    case "plan-hypothesis": {
+      const dir = resolveSlicePath(base, mid, sid!);
+      // Extract experiment number from unitId: M001/S01/E001/plan → E001
+      const expPart = parts[2];
+      const expNum = expPart ? expPart.replace("E", "") : "001";
+      return dir ? join(dir, `EXPERIMENT-${parseInt(expNum, 10)}-PLAN.md`) : null;
+    }
+    case "execute-hypothesis": {
+      const dir = resolveSlicePath(base, mid, sid!);
+      return dir ? join(dir, "EXPERIMENT-LOG.jsonl") : null;
+    }
+    case "verify-hypothesis": {
+      const dir = resolveSlicePath(base, mid, sid!);
+      const expPart = parts[2];
+      const expNum = expPart ? expPart.replace("E", "") : "001";
+      return dir ? join(dir, `EXPERIMENT-${parseInt(expNum, 10)}-ANALYSIS.md`) : null;
+    }
     default:
       return null;
   }
@@ -3587,6 +3869,14 @@ function diagnoseExpectedArtifact(unitType: string, unitId: string, base: string
       return `${relMilestoneFile(base, mid!, "SUMMARY")} (milestone summary)`;
     case "run-experiment":
       return `${relSlicePath(base, mid!, sid!)}\/EXPERIMENT-LOG.jsonl (experiment log entry)`;
+    case "research-hypothesis":
+      return `${relSlicePath(base, mid!, sid!)}\/HYPOTHESIS-RESEARCH.md (hypothesis research findings)`;
+    case "plan-hypothesis":
+      return `${relSlicePath(base, mid!, sid!)}\/EXPERIMENT-NNN-PLAN.md (experiment plan)`;
+    case "execute-hypothesis":
+      return `${relSlicePath(base, mid!, sid!)}\/EXPERIMENT-LOG.jsonl (hypothesis experiment log entry)`;
+    case "verify-hypothesis":
+      return `${relSlicePath(base, mid!, sid!)}\/EXPERIMENT-NNN-ANALYSIS.md (experiment analysis)`;
     default:
       return null;
   }

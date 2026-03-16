@@ -299,6 +299,8 @@ export interface CampaignConfig {
   compute?: ComputeConfig;
   /** Optional prior knowledge / context for hypothesis generation. */
   priors?: string;
+  /** Optional: enable hypothesis-driven sub-phase dispatch (research→plan→execute→verify cycling). */
+  hypothesisMode?: boolean;
 }
 
 // ─── Compute Backend Config ─────────────────────────────────────────────────

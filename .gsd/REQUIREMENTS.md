@@ -71,24 +71,24 @@ Guidelines:
 
 ### R047 — Verifier Analysis & Learning Loop
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: The verify agent runs eval, decides keep/discard, AND produces structured analysis of why the result happened (what worked, what didn't, what to signal to the next experiment). This analysis feeds into the next experiment's plan agent as context.
 - Why it matters: Creates a learning loop between experiments within a hypothesis. Each experiment builds on the previous one's analysis, not just raw metrics.
 - Source: user
 - Primary owning slice: M005/S05
 - Supporting slices: M005/S04
-- Validation: unmapped
+- Validation: M005/S05 — formatResultsForVerify produces structured markdown from ExperimentResult. advanceHypothesisPhase transitions verify→plan(next) with experiment number increment. resolveExpectedArtifactPath maps verify-hypothesis→EXPERIMENT-NNN-ANALYSIS.md. Verify dispatch reads EXPERIMENT-NNN-RESULTS.md and passes to builder. 92 contract assertions across state+dispatch tests. Runtime validation of actual verifier output quality deferred to S06.
 - Notes: Analysis must be structured enough that the plan agent can act on it, not just prose narrative.
 
 ### R048 — Hypothesis→Experiment State Flow
 - Class: core-capability
-- Status: active
+- Status: validated
 - Description: The state machine handles the hypothesis→experiment mapping correctly. Research runs once per hypothesis (slice-level). Plan→execute→verify run per experiment (task-level). Subsequent experiments within a hypothesis receive prior experiment results and verifier analysis as context.
 - Why it matters: The state machine must dispatch the right agent with the right context at the right time. Crash recovery must work across the new flow.
 - Source: user
 - Primary owning slice: M005/S05
 - Supporting slices: none
-- Validation: unmapped
+- Validation: M005/S05 — HYPOTHESIS-STATE.json tracks sub-phase and experiment number with atomic writes. Full phase cycle research→plan→execute→verify→plan(+1) proven by 8 state transition assertions. Dispatch routes to correct sub-phase unit type via 4 dispatch routing assertions. Backward compat — campaigns without hypothesisMode use run-experiment unchanged (4 assertions). Crash recovery via null-on-corrupt with stderr warning (5 corruption assertions). 92 total assertions across two test files.
 - Notes: Leverages existing GSD state machine (research-slice, plan-slice, execute-task, complete-slice). May need per-experiment plan→execute→verify sub-unit cycling.
 
 ### R049 — End-to-End Hypothesis Flow
@@ -577,6 +577,18 @@ Guidelines:
 - Description: Research agent for each hypothesis performs genuine deep investigation — follows links, reads library docs, understands techniques, forms a knowledge base.
 - Validation: M005/S04 — Research prompt names search-the-web, fetch_page, resolve_library, get_library_docs. Requires 3+ distinct sources. Multi-step research process prescribed. Contract tests verify all tool names and source requirement. Runtime validation deferred to S06.
 
+### R047 — Verifier Analysis & Learning Loop
+- Class: core-capability
+- Status: validated
+- Description: The verify agent produces structured analysis that feeds into the next experiment's plan agent as context. Creates a learning loop between experiments within a hypothesis.
+- Validation: M005/S05 — formatResultsForVerify produces structured markdown. advanceHypothesisPhase transitions verify→plan(next) with experiment number increment. resolveExpectedArtifactPath maps verify-hypothesis→EXPERIMENT-NNN-ANALYSIS.md. 92 contract assertions across state+dispatch tests.
+
+### R048 — Hypothesis→Experiment State Flow
+- Class: core-capability
+- Status: validated
+- Description: State machine handles hypothesis→experiment mapping: research once per hypothesis, plan→execute→verify per experiment, with accumulated context feeding forward. Crash recovery works across the new flow.
+- Validation: M005/S05 — HYPOTHESIS-STATE.json tracks sub-phase and experiment number with atomic writes. Full phase cycle proven. Dispatch routes to correct sub-phase unit type. Backward compat with non-hypothesis campaigns preserved. Crash recovery via null-on-corrupt. 92 total assertions.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -752,13 +764,13 @@ Guidelines:
 | R044 | core-capability | validated | M005/S03 | none | M005/S03 |
 | R045 | core-capability | validated | M005/S04 | M005/S02 | M005/S04 |
 | R046 | core-capability | validated | M005/S04 | none | M005/S04 |
-| R047 | core-capability | active | M005/S05 | M005/S04 | unmapped |
-| R048 | core-capability | active | M005/S05 | none | unmapped |
+| R047 | core-capability | validated | M005/S05 | M005/S04 | M005/S05 |
+| R048 | core-capability | validated | M005/S05 | none | M005/S05 |
 | R049 | integration | active | M005/S06 | M005/S01-S05 | unmapped |
 
 ## Coverage Summary
 
-- Active requirements: 3
-- Mapped to slices: 3
-- Validated: 35
+- Active requirements: 1
+- Mapped to slices: 1
+- Validated: 37
 - Unmapped active requirements: 0

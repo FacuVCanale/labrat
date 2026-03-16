@@ -86,6 +86,10 @@ Write your experiment plan as a structured response:
 **Refutation criteria:** (what result would disprove this hypothesis)
 ```
 
+### 💾 Persist Your Plan
+
+After writing the structured response above, also write the full experiment plan to disk at `{{sliceDir}}/EXPERIMENT-{{experimentNumber}}-PLAN.md`. This file will be read by the execute agent as its implementation instructions. Include all four sections (Change, Rationale, Expected outcome, Refutation criteria) in the persisted file.
+
 ### 🔄 Autonomy
 
 You are autonomous. Do NOT pause to ask the human — they may be asleep. If the research findings are thin, form the best hypothesis you can from available evidence. If prior experiments have exhausted obvious approaches, look for less obvious angles in the research.

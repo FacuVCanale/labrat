@@ -128,6 +128,7 @@ export function generateNightShiftScaffold(
       },
       maxExperiments: config.experimentsPerHypothesis,
       budgetPerExperiment: 1.0,
+      hypothesisMode: true,
       ...(config.priors ? { priors: config.priors } : {}),
     };
 
