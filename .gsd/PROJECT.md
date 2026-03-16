@@ -14,7 +14,7 @@ The autonomous experiment loop: modify target files → run eval → parse metri
 
 **M001–M004 complete.** 37 requirements validated across 24 slices. Core research engine, structured research intelligence, upstream sync, and remote compute backends all operational.
 
-**M005 (Hypothesis-Driven Research Flow) in progress.** S01–S05 complete — R042, R043, R044, R045, R046, R047, R048 validated. Next: S06 (End-to-End Integration) which depends on all prior slices (done).
+**M005 (Hypothesis-Driven Research Flow) complete.** All 6 slices done — R042–R049 validated. 313 hypothesis-specific assertions across 5 test files, 0 failures. Full `/nightshift` → interview → scaffold → research → plan → execute → verify → next experiment → next hypothesis flow proven end-to-end.
 
 ## Architecture / Key Patterns
 
@@ -37,4 +37,4 @@ See `.gsd/REQUIREMENTS.md` for the explicit capability contract, requirement sta
 - [x] M002: Structured Research & Intelligence — Research agenda planning, simplicity-aware decisions, runtime steering, multi-file experiments, experiment sequencing. 5 requirements validated. 419 new tests.
 - [x] M003: Upstream Sync & Ecosystem — Mechanism for analyzing, categorizing, applying, and LLM-adapting GSD-2 upstream improvements into Labrat. 1 requirement validated. 167 tests.
 - [x] M004: Remote Compute Backends — Pluggable compute backend abstraction for eval dispatch. SSH and Docker backends with git code sync, pre-flight credential checks, backend error wrapping. 9 requirements validated. 254 tests.
-- [ ] M005: Hypothesis-Driven Research Flow — Replace single-prompt experiments with hypothesis-driven flow leveraging GSD's 4-agent pipeline. Deep research per hypothesis, plan→execute→verify per experiment, learning loop between experiments. NightShift naming cleanup.
+- [x] M005: Hypothesis-Driven Research Flow — Replace single-prompt experiments with hypothesis-driven flow leveraging GSD's 4-agent pipeline. Deep research per hypothesis, plan→execute→verify per experiment, learning loop between experiments. NightShift naming cleanup. 8 requirements validated. 313 tests.

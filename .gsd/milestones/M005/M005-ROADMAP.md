@@ -66,7 +66,7 @@ This milestone is complete only when all are true:
 - [x] **S05: Learning Loop & State Flow** `risk:medium` `depends:[S04]`
   > After this: Verifier analysis feeds into next experiment's planner. State machine handles per-experiment plan→execute→verify cycling within a hypothesis. Crash recovery works across the new flow.
 
-- [ ] **S06: End-to-End Integration** `risk:low` `depends:[S01,S02,S03,S04,S05]`
+- [x] **S06: End-to-End Integration** `risk:low` `depends:[S01,S02,S03,S04,S05]`
   > After this: Full `/nightshift` → interview → `/nightshift auto` → research → plan → execute → verify → next experiment → next hypothesis flow works end-to-end with real eval, real git, real web search.
 
 ## Boundary Map

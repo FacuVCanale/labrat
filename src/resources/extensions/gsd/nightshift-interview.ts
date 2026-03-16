@@ -362,7 +362,7 @@ export async function showNightShiftInterview(
   });
 
   if (choice === "auto") {
-    await startAuto(ctx, pi, basePath);
+    await startAuto(ctx, pi, basePath, false);
   }
 }
 

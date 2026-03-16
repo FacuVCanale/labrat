@@ -93,13 +93,13 @@ Guidelines:
 
 ### R049 — End-to-End Hypothesis Flow
 - Class: integration
-- Status: active
+- Status: validated
 - Description: Full flow works: `/nightshift` → interview → `/nightshift auto` → for each hypothesis: research → for each experiment: plan → execute → verify → next experiment → next hypothesis. All infrastructure (crash recovery, git, eval, MLOps, compute backends, budget guards) works with the new flow.
 - Why it matters: The integration proof. Individual pieces working doesn't mean the assembled system works.
 - Source: user
 - Primary owning slice: M005/S06
 - Supporting slices: M005/S01, M005/S02, M005/S03, M005/S04, M005/S05
-- Validation: unmapped
+- Validation: M005/S06 — hypothesis-integration.test.ts with 53 assertions proving: scaffold roundtrip through all three parsers (roadmap→slices→plan→campaign config), all four prompt builders produce non-empty output with real scaffold data and pass naming compliance, full state machine cycling (research→plan→execute→verify→plan+1→done) with experiment number increments, real eval execution against karpathy-smoke fixture with JSON metric parsing, JSONL experiment count synchronized with state, multi-hypothesis transition (H1 complete → H2 active via deriveState). Full suite: 313 assertions across 5 test files (43 state + 49 dispatch + 69 prompt + 99 nightshift + 53 integration), 0 failures.
 - Notes: Must exercise real eval command, real git commit/revert, real hypothesis→experiment cycling.
 
 - Class: core-capability
@@ -589,6 +589,12 @@ Guidelines:
 - Description: State machine handles hypothesis→experiment mapping: research once per hypothesis, plan→execute→verify per experiment, with accumulated context feeding forward. Crash recovery works across the new flow.
 - Validation: M005/S05 — HYPOTHESIS-STATE.json tracks sub-phase and experiment number with atomic writes. Full phase cycle proven. Dispatch routes to correct sub-phase unit type. Backward compat with non-hypothesis campaigns preserved. Crash recovery via null-on-corrupt. 92 total assertions.
 
+### R049 — End-to-End Hypothesis Flow
+- Class: integration
+- Status: validated
+- Description: Full flow works: `/nightshift` → interview → scaffold → for each hypothesis: research → for each experiment: plan → execute → verify → next experiment → next hypothesis.
+- Validation: M005/S06 — 53-assertion integration test proving scaffold roundtrip, prompt builder parity, state machine cycling, eval execution, JSONL sync, multi-hypothesis transition. 313 total assertions across 5 test files, 0 failures.
+
 ## Deferred
 
 ### R036 — Modal Serverless GPU Backend
@@ -766,11 +772,11 @@ Guidelines:
 | R046 | core-capability | validated | M005/S04 | none | M005/S04 |
 | R047 | core-capability | validated | M005/S05 | M005/S04 | M005/S05 |
 | R048 | core-capability | validated | M005/S05 | none | M005/S05 |
-| R049 | integration | active | M005/S06 | M005/S01-S05 | unmapped |
+| R049 | integration | validated | M005/S06 | M005/S01-S05 | M005/S06 |
 
 ## Coverage Summary
 
-- Active requirements: 1
-- Mapped to slices: 1
-- Validated: 37
+- Active requirements: 0
+- Mapped to slices: 0
+- Validated: 38
 - Unmapped active requirements: 0
